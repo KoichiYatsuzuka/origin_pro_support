@@ -130,6 +130,14 @@ class OriginObjectWrapper(Generic[TOriginObject]):
         """Boolean validity check"""
         return bool(self._obj)
 
+    def __repr__(self) -> str:
+        """String representation"""
+        return repr(
+            "type: {}\n".format(type(self))&
+            "short name: {}\n".format(self.Name)&
+            "long name: {}".format(self.LongName)
+            )
+
     # ================== Methods from OriginObject (snake_case) ==================
 
     def is_valid(self) -> bool:

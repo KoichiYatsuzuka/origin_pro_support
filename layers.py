@@ -13,8 +13,9 @@ This module contains wrapper classes for Origin layers including:
 from __future__ import annotations
 
 import OriginExt.OriginExt as oext_types
+import pandas as pd
 
-from typing import Iterator, TypeVar, TYPE_CHECKING
+from typing import Iterator, TypeVar, TYPE_CHECKING, Union, Optional
 
 from .base import OriginObjectWrapper
 
@@ -182,6 +183,32 @@ class Datasheet(Layer[TDatasheet]):
         return self._obj.FindCol(label, begin, case_sensitive, full_match, end, allow_short_name)
 
 
+class ColumnCollection:
+    """
+    Wrapper for Origin column collection that returns wrapped Column objects.
+    """
+    
+    def __init__(self, columns_collection):
+        self._columns = columns_collection
+    
+    def __getitem__(self, index: int) -> Column:
+        """Get column by index"""
+        return Column(self._columns[index])
+    
+    def __call__(self, index: int) -> Column:
+        """Get column by index (Origin-style access)"""
+        return Column(self._columns(index))
+    
+    def __len__(self) -> int:
+        """Get number of columns"""
+        return len(self._columns)
+    
+    def __iter__(self) -> Iterator[Column]:
+        """Iterate over columns"""
+        for col in self._columns:
+            yield Column(col)
+
+
 class Column:
     """
     Column in a worksheet.
@@ -202,34 +229,110 @@ class Column:
         self._column = column
 
     @property
-    def Name(self) -> str:
+    def name(self) -> str:
         """Short name of the column"""
         return self._column.Name
 
+    @name.setter
+    def name(self, value: str) -> None:
+        """Set short name"""
+        self._column.Name = value
+
+    # Backward compatibility alias
     @property
-    def LongName(self) -> str:
+    def Name(self) -> str:
+        """Short name of the column (backward compatibility)"""
+        return self.name
+
+    @Name.setter
+    def Name(self, value: str) -> None:
+        """Set short name (backward compatibility)"""
+        self.name = value
+
+    @property
+    def long_name(self) -> str:
         """Long name of the column"""
         return self._column.LongName
 
+    @long_name.setter
+    def long_name(self, value: str) -> None:
+        """Set long name"""
+        self._column.LongName = value
+
+    # Backward compatibility alias
     @property
-    def Type(self) -> int:
+    def LongName(self) -> str:
+        """Long name of the column (backward compatibility)"""
+        return self.long_name
+
+    @LongName.setter
+    def LongName(self, value: str) -> None:
+        """Set long name (backward compatibility)"""
+        self.long_name = value
+
+    @property
+    def type(self) -> int:
         """Column type"""
         return self._column.Type
 
+    # Backward compatibility alias
     @property
-    def Units(self) -> str:
+    def Type(self) -> int:
+        """Column type (backward compatibility)"""
+        return self.type
+
+    @property
+    def units(self) -> str:
         """Column units"""
         return self._column.Units
 
+    @units.setter
+    def units(self, value: str) -> None:
+        """Set column units"""
+        self._column.Units = value
+
+    # Backward compatibility alias
     @property
-    def Comments(self) -> str:
+    def Units(self) -> str:
+        """Column units (backward compatibility)"""
+        return self.units
+
+    @Units.setter
+    def Units(self, value: str) -> None:
+        """Set column units (backward compatibility)"""
+        self.units = value
+
+    @property
+    def comments(self) -> str:
         """Column comments"""
         return self._column.Comments
 
+    @comments.setter
+    def comments(self, value: str) -> None:
+        """Set column comments"""
+        self._column.Comments = value
+
+    # Backward compatibility alias
     @property
-    def Parent(self) -> Worksheet:
+    def Comments(self) -> str:
+        """Column comments (backward compatibility)"""
+        return self.comments
+
+    @Comments.setter
+    def Comments(self, value: str) -> None:
+        """Set column comments (backward compatibility)"""
+        self.comments = value
+
+    @property
+    def parent(self) -> Worksheet:
         """Parent worksheet"""
         return Worksheet(self._column.Parent)
+
+    # Backward compatibility alias
+    @property
+    def Parent(self) -> Worksheet:
+        """Parent worksheet (backward compatibility)"""
+        return self.parent
 
     def get_parent(self) -> Worksheet:
         """
@@ -299,11 +402,13 @@ class Worksheet(Datasheet[oext_types.Worksheet]):
     @property
     def Columns(self):
         """Collection of columns in this worksheet"""
-        return self._obj.Columns
+        # Return a wrapper that provides access to wrapped Column objects
+        return ColumnCollection(self._obj.Columns)
 
     def __iter__(self) -> Iterator[Column]:
         """Iterate over columns"""
-        return iter(self._obj)
+        for col in self._obj:
+            yield Column(col)
 
     def __getitem__(self, index: int) -> Column:
         """Get column by index"""
@@ -372,6 +477,89 @@ class Worksheet(Datasheet[oext_types.Worksheet]):
         Corresponds to: OriginExt.OriginExt.Worksheet.SetData()
         """
         return self._obj.SetData(*args)
+
+    def from_df(self, df: pd.DataFrame) -> None:
+        """
+        Load pandas DataFrame into worksheet.
+        Uses DataFrame column names as Origin column Long Name.
+
+        Args:
+            df: pandas DataFrame to load into worksheet
+        """
+        if not isinstance(df, pd.DataFrame):
+            raise TypeError("Input must be a pandas DataFrame")
+        
+        # Ensure worksheet has enough columns
+        num_cols = len(df.columns)
+        if self.get_cols() < num_cols:
+            self.set_cols(num_cols)
+        
+        # Ensure worksheet has enough rows
+        num_rows = len(df)
+        if self.get_rows() < num_rows:
+            self.set_rows(num_rows)
+        
+        # Set column long names from DataFrame column names
+        for i, col_name in enumerate(df.columns):
+            col = self.Columns(i)
+            col.LongName = str(col_name)
+        
+        # Load data column by column
+        for i, col_name in enumerate(df.columns):
+            col_data = df[col_name].tolist()
+            col = self.Columns(i)
+            col.set_data(col_data)
+
+    def from_list(self, col_index: Union[int, str], data: list, lname: Optional[str] = None, 
+                  units: Optional[str] = None, comments: Optional[str] = None, 
+                  axis: Optional[str] = None) -> None:
+        """
+        Load list data into specified column with optional properties.
+        
+        Args:
+            col_index: Column index (0-based) or column letter ('A', 'B', etc.)
+            data: List of data to load
+            lname: Optional long name for the column
+            units: Optional units for the column
+            comments: Optional comments for the column
+            axis: Optional axis designation ('X', 'Y', 'Z', 'E', etc.)
+        """
+        # Convert column letter to index if necessary
+        if isinstance(col_index, str):
+            if len(col_index) == 1 and col_index.isalpha():
+                col_index = ord(col_index.upper()) - ord('A')
+            else:
+                raise ValueError("Column letter must be a single alphabetic character (A, B, C, etc.)")
+        
+        # Ensure worksheet has enough columns
+        if self.get_cols() <= col_index:
+            self.set_cols(col_index + 1)
+        
+        # Ensure worksheet has enough rows
+        if self.get_rows() < len(data):
+            self.set_rows(len(data))
+        
+        # Get the column and set data
+        col = self.Columns(col_index)
+        col.set_data(data)
+        
+        # Set optional properties
+        if lname is not None:
+            col.LongName = lname
+        if units is not None:
+            col.Units = units
+        if comments is not None:
+            col.Comments = comments
+        if axis is not None:
+            # Set axis designation using LabTalk command
+            # This corresponds to setting the column type/designation
+            axis_map = {'X': 1, 'Y': 2, 'Z': 3, 'E': 4}  # Common axis types
+            if axis.upper() in axis_map:
+                col.Type = axis_map[axis.upper()]
+            else:
+                # Try to set using LabTalk command for other designations
+                range_str = f"[{self.get_page().Name}]${self.Name}!{col_index + 1}"
+                self._obj.Execute(f"set {range_str} -t {axis}")
 
 
 class DataPlot:

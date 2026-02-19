@@ -15,6 +15,7 @@ from __future__ import annotations
 import OriginExt.OriginExt as oext_types
 
 from typing import Iterator, TypeVar, TYPE_CHECKING
+import numpy as np
 
 from .base import OriginObjectWrapper
 
@@ -26,130 +27,6 @@ if TYPE_CHECKING:
 
 TPageBase = TypeVar('TPageBase', bound=oext_types.PageBase)
 TPage = TypeVar('TPage', bound=oext_types.Page)
-
-
-# ================== Folder Class ==================
-
-class Folder:
-    """
-    Project folder for organizing pages.
-    Wrapper class that wraps OriginExt.OriginExt.Folder with additional features.
-
-    Corresponds to: originpro.Folder, OriginExt.OriginExt.Folder
-    """
-
-    _folder: oext_types.Folder
-
-    def __init__(self, folder: oext_types.Folder):
-        """
-        Initialize Folder wrapper.
-
-        Args:
-            folder: Original OriginExt.Folder instance to wrap
-        """
-        self._folder = folder
-
-    @property
-    def Path(self) -> str:
-        """Full path of the folder in the project"""
-        return self._folder.Path
-
-    @property
-    def Parent(self) -> Folder:
-        """Parent folder"""
-        return Folder(self._folder.Parent)
-
-    @property
-    def Folders(self):
-        """Collection of subfolders"""
-        return self._folder.Folders
-
-    def __iter__(self) -> Iterator[PageBase]:
-        """Iterate over pages in this folder"""
-        return iter(self._folder)
-
-    def get_sub_folders(self) -> list[Folder]:
-        """
-        Get list of subfolders in this folder.
-
-        Corresponds to: OriginExt.OriginExt.Folder.GetFolders()
-
-        Returns:
-            list[Folder]: List of subfolders
-        """
-        return [Folder(f) for f in self._folder.GetFolders()]
-
-    def get_path(self) -> str:
-        """
-        Get the full path of this folder.
-
-        Corresponds to: OriginExt.OriginExt.Folder.GetPath()
-
-        Returns:
-            str: Full path of the folder in the project
-        """
-        return self._folder.GetPath()
-
-    def get_index(self) -> int:
-        """
-        Get the index of this folder.
-
-        Corresponds to: OriginExt.OriginExt.Folder.GetIndex()
-
-        Returns:
-            int: Index of the folder
-        """
-        return self._folder.GetIndex()
-
-    def get_parent(self) -> Folder:
-        """
-        Get the parent folder.
-
-        Corresponds to: OriginExt.OriginExt.Folder.GetParent()
-
-        Returns:
-            Folder: Parent folder
-        """
-        return Folder(self._folder.GetParent())
-
-    def get_result_text(self, recursive: bool = False) -> str:
-        """
-        Get result text from this folder.
-
-        Corresponds to: OriginExt.OriginExt.Folder.GetResultText()
-
-        Args:
-            recursive: If True, include results from subfolders
-
-        Returns:
-            str: Result text
-        """
-        return self._folder.GetResultText(recursive)
-
-    def get_pages(self) -> list[PageBase]:
-        """
-        Get list of pages in this folder.
-
-        Corresponds to: OriginExt.OriginExt.Folder.PageBases()
-
-        Returns:
-            list[PageBase]: List of pages in this folder
-        """
-        return list(self._folder.PageBases())
-
-    def add_folder(self, name: str) -> Folder:
-        """
-        Add a new subfolder to this folder.
-
-        Args:
-            name: Name of the new subfolder
-
-        Returns:
-            Folder: The newly created subfolder
-        """
-        new_folder = self._folder.Folders.Add(name)
-        return Folder(new_folder)
-
 
 # ================== Page Classes ==================
 

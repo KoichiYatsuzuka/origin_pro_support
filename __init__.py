@@ -30,7 +30,6 @@ from .base import (
 )
 
 from .pages import (
-    Folder,
     PageBase,
     Page,
     WorksheetPage,
@@ -47,6 +46,10 @@ from .layers import (
     DataPlot,
     GraphLayer,
     Matrixsheet,
+)
+
+from .folder import (
+    Folder,
 )
 
 # ================== Application API ==================
@@ -206,7 +209,7 @@ class OriginInstance:
                 raise OriginInstanceGenerationError(
                     "Failed to load.\n \
                     Please check the extension, the version of Origin, and so on.\n"+\
-                    "The path: {}".format(os.path)
+                    "The path: {}".format(self.path)
                     )
 
         # 新規作成がFalseでパスが見つからない場合
@@ -392,7 +395,7 @@ class OriginInstance:
         """
         Create a new folder in the project.
 
-        Corresponds to: originpro.Folder.add_folder()
+        Corresponds to: originpro.Folder.create_folder()
 
         Args:
             name: Name of the new folder
@@ -486,7 +489,10 @@ class OriginInstance:
         # Return the newly created book (most recently created)
         pages = list(self.__core.GetWorksheetPages() if type_ == 'w' else self.__core.GetMatrixPages())
         if pages:
-            return pages[-1]
+            if type_ == 'w':
+                return WorksheetPage(pages[-1])
+            else:
+                return MatrixPage(pages[-1])
         return None
 
     def new_sheet(self, type_: str = 'w', long_name: str = '', template: str = '') -> Optional[Union[Worksheet, Matrixsheet]]:
