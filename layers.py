@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import OriginExt.OriginExt as oext_types
 import pandas as pd
+from enum import Enum
 
 from typing import Iterator, TypeVar, TYPE_CHECKING, Union, Optional
 
@@ -23,10 +24,100 @@ if TYPE_CHECKING:
     from .pages import Page, WorksheetPage, GraphPage, MatrixPage
 
 
+# ================== Helper Functions ==================
+
+def get_originext_obj(wrapper_obj):
+    """
+    Get the underlying OriginExt object from a wrapper.
+    
+    Args:
+        wrapper_obj: A wrapper object (GraphLayer, Worksheet, etc.)
+        
+    Returns:
+        The underlying OriginExt object
+    """
+    if hasattr(wrapper_obj, '_obj'):
+        # If _obj is another wrapper, get its _obj
+        if hasattr(wrapper_obj._obj, '_obj'):
+            return wrapper_obj._obj._obj
+        return wrapper_obj._obj
+    return wrapper_obj
+
+def get_originext_graphlayer(graphlayer_wrapper):
+    """
+    Get the OriginExt GraphLayer object from a GraphLayer wrapper.
+    
+    Args:
+        graphlayer_wrapper: GraphLayer wrapper instance
+        
+    Returns:
+        OriginExt GraphLayer object
+    """
+    obj = get_originext_obj(graphlayer_wrapper)
+    # Ensure it's the correct type by checking if it has GraphLayer methods
+    return obj
+
+def get_originext_worksheet(worksheet_wrapper):
+    """
+    Get the OriginExt Worksheet object from a Worksheet wrapper.
+    
+    Args:
+        worksheet_wrapper: Worksheet wrapper instance
+        
+    Returns:
+        OriginExt Worksheet object
+    """
+    obj = get_originext_obj(worksheet_wrapper)
+    return obj
+
+
 # ================== Type Variables ==================
 
 TLayer = TypeVar('TLayer', bound=oext_types.Layer)
 TDatasheet = TypeVar('TDatasheet', bound=oext_types.Datasheet)
+
+
+# ================== Enum Types ==================
+
+class PlotType(Enum):
+    """Enumeration for plot types to avoid literal values."""
+    LINE = 200  # Line plot
+    SCATTER = 201  # Scatter plot
+    LINE_SYMBOL = 202  # Line + Symbol plot
+    COLUMN = 203  # Column/bar plot
+    BAR = 204  # Horizontal bar plot
+    AREA = 205  # Area plot
+    PIE = 206  # Pie chart
+    SURFACE = 207  # 3D surface plot
+    CONTOUR = 208  # Contour plot
+    HISTOGRAM = 209  # Histogram
+
+
+class ColorMap(Enum):
+    """Enumeration for color maps to avoid literal values."""
+    CANDY = "Candy"
+    RAINBOW = "Rainbow"
+    HEATMAP = "Heatmap"
+    GRAYSCALE = "Grayscale"
+    OCEAN = "Ocean"
+    TERRAIN = "Terrain"
+    VIRIDIS = "Viridis"
+    PLASMA = "Plasma"
+
+
+class GroupMode(Enum):
+    """Enumeration for grouping modes."""
+    NONE = 0  # No grouping
+    INDEPENDENT = 1  # Independent plots
+    DEPENDENT = 2  # Dependent plots
+
+
+class AxisType(Enum):
+    """Enumeration for axis types."""
+    X = 1
+    Y = 2
+    Z = 3
+    ERROR = 4
 
 
 # ================== Layer Classes ==================
@@ -40,14 +131,17 @@ class Layer(OriginObjectWrapper[TLayer]):
     Corresponds to: originpro.DSheet / originpro.GLayer, OriginExt.OriginExt.Layer
     """
 
-    def __init__(self, layer: TLayer):
+    def __init__(self, layer: TLayer, parent: Optional['OriginObjectWrapper'] = None, 
+                 origin_instance: Optional['OriginInstance'] = None):
         """
-        Initialize Layer wrapper.
+        Initialize Layer wrapper with hierarchical references.
 
         Args:
             layer: Original OriginExt.Layer instance to wrap
+            parent: Parent wrapper object (for hierarchical navigation)
+            origin_instance: Root OriginInstance reference (for LabTalk access)
         """
-        super().__init__(layer)
+        super().__init__(layer, parent, origin_instance)
 
     @property
     def Parent(self) -> Page:
@@ -87,14 +181,17 @@ class Datasheet(Layer[TDatasheet]):
     Corresponds to: OriginExt.OriginExt.Datasheet
     """
 
-    def __init__(self, datasheet: TDatasheet):
+    def __init__(self, datasheet: TDatasheet, parent: Optional['OriginObjectWrapper'] = None, 
+                 origin_instance: Optional['OriginInstance'] = None):
         """
-        Initialize Datasheet wrapper.
+        Initialize Datasheet wrapper with hierarchical references.
 
         Args:
             datasheet: Original OriginExt.Datasheet instance to wrap
+            parent: Parent wrapper object (for hierarchical navigation)
+            origin_instance: Root OriginInstance reference (for LabTalk access)
         """
-        super().__init__(datasheet)
+        super().__init__(datasheet, parent, origin_instance)
 
     @property
     def Cols(self) -> int:
@@ -188,55 +285,52 @@ class ColumnCollection:
     Wrapper for Origin column collection that returns wrapped Column objects.
     """
     
-    def __init__(self, columns_collection):
+    def __init__(self, columns_collection, parent: Optional['OriginObjectWrapper'] = None):
         self._columns = columns_collection
+        self._parent = parent
     
     def __getitem__(self, index: int) -> Column:
         """Get column by index"""
-        return Column(self._columns[index])
+        return Column(self._columns[index], self._parent)
     
     def __call__(self, index: int) -> Column:
         """Get column by index (Origin-style access)"""
-        return Column(self._columns(index))
+        return Column(self._columns(index), self._parent)
     
     def __len__(self) -> int:
         """Get number of columns"""
         return len(self._columns)
-    
-    def __iter__(self) -> Iterator[Column]:
-        """Iterate over columns"""
-        for col in self._columns:
-            yield Column(col)
 
 
-class Column:
+class Column(OriginObjectWrapper[oext_types.Column]):
     """
     Column in a worksheet.
     Wrapper class that wraps OriginExt.OriginExt.Column.
 
-    Corresponds to: OriginExt.OriginExt.Column
+    Corresponds to: originpro.Column, OriginExt.OriginExt.Column
     """
 
-    _column: oext_types.Column
-
-    def __init__(self, column: oext_types.Column):
+    def __init__(self, column: oext_types.Column, parent: Optional['OriginObjectWrapper'] = None, 
+                 origin_instance: Optional['OriginInstance'] = None):
         """
-        Initialize Column wrapper.
+        Initialize Column wrapper with hierarchical references.
 
         Args:
             column: Original OriginExt.Column instance to wrap
+            parent: Parent wrapper object (for hierarchical navigation)
+            origin_instance: Root OriginInstance reference (for LabTalk access)
         """
-        self._column = column
+        super().__init__(column, parent, origin_instance)
 
     @property
     def name(self) -> str:
         """Short name of the column"""
-        return self._column.Name
+        return self._obj.Name
 
     @name.setter
     def name(self, value: str) -> None:
         """Set short name"""
-        self._column.Name = value
+        self._obj.Name = value
 
     # Backward compatibility alias
     @property
@@ -252,12 +346,12 @@ class Column:
     @property
     def long_name(self) -> str:
         """Long name of the column"""
-        return self._column.LongName
+        return self._obj.LongName
 
     @long_name.setter
     def long_name(self, value: str) -> None:
         """Set long name"""
-        self._column.LongName = value
+        self._obj.LongName = value
 
     # Backward compatibility alias
     @property
@@ -273,7 +367,7 @@ class Column:
     @property
     def type(self) -> int:
         """Column type"""
-        return self._column.Type
+        return self._obj.Type
 
     # Backward compatibility alias
     @property
@@ -281,15 +375,20 @@ class Column:
         """Column type (backward compatibility)"""
         return self.type
 
+    @Type.setter
+    def Type(self, value: int) -> None:
+        """Set column type (backward compatibility)"""
+        self._obj.Type = value
+
     @property
     def units(self) -> str:
         """Column units"""
-        return self._column.Units
+        return self._obj.Units
 
     @units.setter
     def units(self, value: str) -> None:
         """Set column units"""
-        self._column.Units = value
+        self._obj.Units = value
 
     # Backward compatibility alias
     @property
@@ -305,12 +404,12 @@ class Column:
     @property
     def comments(self) -> str:
         """Column comments"""
-        return self._column.Comments
+        return self._obj.Comments
 
     @comments.setter
     def comments(self, value: str) -> None:
         """Set column comments"""
-        self._column.Comments = value
+        self._obj.Comments = value
 
     # Backward compatibility alias
     @property
@@ -326,7 +425,7 @@ class Column:
     @property
     def parent(self) -> Worksheet:
         """Parent worksheet"""
-        return Worksheet(self._column.Parent)
+        return Worksheet(self._obj.Parent, self._parent, self.origin_instance)
 
     # Backward compatibility alias
     @property
@@ -343,7 +442,7 @@ class Column:
         Returns:
             Worksheet: Parent worksheet
         """
-        return Worksheet(self._column.GetParent())
+        return Worksheet(self._obj.GetParent(), self._parent, self.origin_instance)
 
     def get_data(self, format: int, start: int = 0, end: int = -1, lowbound: int = 1):
         """
@@ -360,7 +459,7 @@ class Column:
         Returns:
             Column data
         """
-        return self._column.GetData(format, start, end, lowbound)
+        return self._obj.GetData(format, start, end, lowbound)
 
     def set_data(self, *args):
         """
@@ -368,7 +467,7 @@ class Column:
 
         Corresponds to: OriginExt.OriginExt.Column.SetData()
         """
-        return self._column.SetData(*args)
+        return self._obj.SetData(*args)
 
     def is_valid(self) -> bool:
         """
@@ -390,29 +489,32 @@ class Worksheet(Datasheet[oext_types.Worksheet]):
     Corresponds to: originpro.WSheet, OriginExt.OriginExt.Worksheet
     """
 
-    def __init__(self, worksheet: oext_types.Worksheet):
+    def __init__(self, worksheet: oext_types.Worksheet, parent: Optional['OriginObjectWrapper'] = None, 
+                 origin_instance: Optional['OriginInstance'] = None):
         """
-        Initialize Worksheet wrapper.
+        Initialize Worksheet wrapper with hierarchical references.
 
         Args:
             worksheet: Original OriginExt.Worksheet instance to wrap
+            parent: Parent wrapper object (for hierarchical navigation)
+            origin_instance: Root OriginInstance reference (for LabTalk access)
         """
-        super().__init__(worksheet)
+        super().__init__(worksheet, parent, origin_instance)
 
     @property
     def Columns(self):
         """Collection of columns in this worksheet"""
         # Return a wrapper that provides access to wrapped Column objects
-        return ColumnCollection(self._obj.Columns)
+        return ColumnCollection(self._obj.Columns, self)
 
     def __iter__(self) -> Iterator[Column]:
         """Iterate over columns"""
         for col in self._obj:
-            yield Column(col)
+            yield Column(col, self)
 
     def __getitem__(self, index: int) -> Column:
         """Get column by index"""
-        return Column(self._obj[index])
+        return Column(self._obj[index], self)
 
     def get_cell(self, row: int, col: int):
         """
@@ -444,13 +546,12 @@ class Worksheet(Datasheet[oext_types.Worksheet]):
         """
         Get the parent workbook page.
 
-        Corresponds to: OriginExt.OriginExt.Worksheet.GetPage()
-
         Returns:
             WorksheetPage: Parent workbook page
         """
         from .pages import WorksheetPage
-        return WorksheetPage(self._obj.GetPage())
+        import OriginExt._OriginExt as oext
+        return WorksheetPage(oext.Worksheet_GetPage(self._obj))
 
     def get_data(self, row_start: int = 0, col_start: int = 0, row_end: int = -1, col_end: int = -1, format: int = 0):
         """
@@ -572,14 +673,33 @@ class DataPlot:
 
     _plot: oext_types.DataPlot
 
-    def __init__(self, plot: oext_types.DataPlot):
+    def __init__(self, plot: oext_types.DataPlot, parent: Optional['OriginObjectWrapper'] = None, 
+                 origin_instance: Optional['OriginInstance'] = None):
         """
-        Initialize DataPlot wrapper.
+        Initialize DataPlot wrapper with hierarchical references.
 
         Args:
             plot: Original OriginExt.DataPlot instance to wrap
+            parent: Parent wrapper object (for hierarchical navigation)
+            origin_instance: Root OriginInstance reference (for LabTalk access)
         """
         self._plot = plot
+        self._parent = parent
+        self._origin_instance = origin_instance
+
+    @property
+    def parent(self) -> Optional['OriginObjectWrapper']:
+        """Get the parent wrapper object"""
+        return self._parent
+
+    @property
+    def origin_instance(self) -> Optional['OriginInstance']:
+        """Get the root OriginInstance reference"""
+        if self._origin_instance:
+            return self._origin_instance
+        elif self._parent:
+            return self._parent.origin_instance
+        return None
 
     @property
     def Name(self) -> str:
@@ -590,6 +710,45 @@ class DataPlot:
     def Parent(self) -> GraphLayer:
         """Parent graph layer"""
         return GraphLayer(self._plot.Parent)
+
+    @property
+    def color_map(self) -> ColorMap:
+        try:
+            import OriginExt._OriginExt as oext
+            color_map_str = oext.DataPlot_GetColorMap(self._plot)
+            return ColorMap(color_map_str)
+        except ValueError:
+            return ColorMap.CANDY  # Default fallback
+
+    @color_map.setter
+    def color_map(self, value: ColorMap) -> None:
+        try:
+            # Use direct property access like in Origin sample: plot.colormap = 'Candy'
+            self._plot.colormap = value.value
+        except Exception as e:
+            print(f"Direct colormap setting failed: {e}")
+            # Try alternative approach using _OriginExt
+            try:
+                import OriginExt._OriginExt as oext
+                oext.OriginObject_DoMethod(self._plot, f"SetColorMap({value.value})")
+            except Exception as e2:
+                print(f"Alternative colormap setting also failed: {e2}")
+
+    @property
+    def shape_list(self) -> list[int]:
+        """Get shape list"""
+        try:
+            return list(self._plot.shapelist)
+        except:
+            return []
+
+    @shape_list.setter
+    def shape_list(self, shapes: list[int]) -> None:
+        """Set shape list like in Origin sample: plot.shapelist = [3, 2, 1]"""
+        try:
+            self._plot.shapelist = shapes
+        except Exception as e:
+            print(f"Shape list setting failed: {e}")
 
     def get_parent(self) -> GraphLayer:
         """
@@ -613,6 +772,15 @@ class DataPlot:
         """
         return self._plot.GetColorMap()
 
+    def set_color_map(self, color_map: ColorMap) -> None:
+        """
+        Set color map using enum.
+
+        Args:
+            color_map: ColorMap enum value
+        """
+        self._plot.SetColorMap(color_map.value)
+
     def change_data(self, data_obj, designation: str, keep_modifiers: bool = False):
         """
         Change data source.
@@ -635,14 +803,17 @@ class GraphLayer(Layer[oext_types.GraphLayer]):
     Corresponds to: originpro.GLayer, OriginExt.OriginExt.GraphLayer
     """
 
-    def __init__(self, layer: oext_types.GraphLayer):
+    def __init__(self, layer: oext_types.GraphLayer, parent: Optional['OriginObjectWrapper'] = None, 
+                 origin_instance: Optional['OriginInstance'] = None):
         """
-        Initialize GraphLayer wrapper.
+        Initialize GraphLayer wrapper with hierarchical references.
 
         Args:
             layer: Original OriginExt.GraphLayer instance to wrap
+            parent: Parent wrapper object (for hierarchical navigation)
+            origin_instance: Root OriginInstance reference (for LabTalk access)
         """
-        super().__init__(layer)
+        super().__init__(layer, parent, origin_instance)
 
     @property
     def DataPlots(self):
@@ -657,53 +828,182 @@ class GraphLayer(Layer[oext_types.GraphLayer]):
     def __iter__(self) -> Iterator[DataPlot]:
         """Iterate over data plots"""
         for plot in self._obj:
-            yield DataPlot(plot)
+            yield DataPlot(plot, self, self.origin_instance)
 
     def __getitem__(self, index: int) -> DataPlot:
         """Get data plot by index"""
-        return DataPlot(self._obj[index])
+        return DataPlot(self._obj[index], self, self.origin_instance)
 
-    def add_plot(self, data_range, plot_type: int, composite: bool = False) -> DataPlot:
+    def get_page(self) -> GraphPage:
         """
-        Add a plot from a data range.
+        Get the parent graph page.
 
-        Corresponds to: OriginExt.OriginExt.GraphLayer.AddPlot()
+        Returns:
+            GraphPage: Parent graph page
+        """
+        from .pages import GraphPage
+        import OriginExt._OriginExt as oext
+        return GraphPage(oext.GraphLayer_GetPage(self._obj))
+
+    def add_plot(self, data_range, plot_type: PlotType, composite: bool = False) -> DataPlot:
+        """
+        Add a plot from a data range using PlotType enum.
 
         Args:
             data_range: Data range object
-            plot_type: Plot type identifier
+            plot_type: PlotType enum value
             composite: Create composite plot
 
         Returns:
             DataPlot: The newly created data plot
         """
-        return DataPlot(self._obj.AddPlot(data_range, plot_type, composite))
+        import OriginExt._OriginExt as oext
+        return DataPlot(oext.GraphLayer_AddPlot(self._obj, data_range, plot_type.value, composite), 
+                       self, self.origin_instance)
 
-    def add_plot_from_string(self, range_str: str, plot_type: int) -> DataPlot:
+    def add_plot_from_string(self, range_str: str, plot_type: PlotType) -> DataPlot:
         """
-        Add a plot from a range string.
-
-        Corresponds to: OriginExt.OriginExt.GraphLayer.AddPlotFromString()
+        Add a plot from a range string using PlotType enum.
+        Based on Origin Sample #5: gl.add_plot(f'{wks.lt_range()}!(?,1:end)')
 
         Args:
             range_str: Range string
-            plot_type: Plot type identifier
+            plot_type: PlotType enum value
 
         Returns:
             DataPlot: The newly created data plot
         """
-        return DataPlot(self._obj.AddPlotFromString(range_str, plot_type))
+        print(f"Attempting to create plot with range: {range_str}")
+        print(f"Plot type: {plot_type} (value: {plot_type.value})")
+        
+        # Debug: Check if we can access Origin instance through hierarchy
+        origin_instance = self.get_origin_instance()
+        print(f"Origin instance accessible through hierarchy: {origin_instance is not None}")
+        
+        try:
+            # Use GraphLayer_AddPlotFromString which accepts string directly
+            import OriginExt._OriginExt as oext
+            
+            # Get the underlying OriginExt GraphLayer object
+            gl_obj = get_originext_graphlayer(self)
+            
+            # Call AddPlotFromString with range string and plot type
+            plot_obj = oext.GraphLayer_AddPlotFromString(gl_obj, range_str, plot_type.value)
+            
+            if plot_obj:
+                return DataPlot(plot_obj, self, self.origin_instance)
+            else:
+                print("GraphLayer_AddPlotFromString returned None")
+                
+        except Exception as e:
+            print(f"GraphLayer_AddPlotFromString failed: {e}")
+            # Try alternative approach using the wrapper's method
+            try:
+                # Try to use string directly with the wrapper
+                plot = self._obj.AddPlot(range_str, plot_type.value)
+                if plot:
+                    return DataPlot(plot, self, self.origin_instance)
+            except Exception as e2:
+                print(f"Alternative approach also failed: {e2}")
+        
+        raise RuntimeError(f"Failed to create plot with range: {range_str}")
+
+    def group_plots(self, group_mode: GroupMode = GroupMode.DEPENDENT) -> None:
+        """
+        Group plots in this layer using GroupMode enum.
+        Based on Origin Sample #5: gl.group()
+
+        Args:
+            group_mode: GroupMode enum value
+        """
+        if group_mode != GroupMode.NONE:
+            try:
+                # Use the wrapper's group method directly like in Origin sample
+                self._obj.Group()
+            except Exception as e:
+                print(f"Direct Group method failed: {e}")
+                # Try alternative approach using _OriginExt
+                try:
+                    import OriginExt._OriginExt as oext
+                    gl_obj = get_originext_graphlayer(self)
+                    oext.OriginObject_DoMethod(gl_obj, "Group")
+                except Exception as e2:
+                    print(f"Alternative group method also failed: {e2}")
+
+    def rescale(self) -> None:
+        """
+        Rescale the layer to fit all data.
+        Based on Origin Sample #5: gl.rescale()
+        """
+        try:
+            # Use the wrapper's rescale method directly like in Origin sample
+            self._obj.Rescale()
+        except Exception as e:
+            print(f"Direct Rescale method failed: {e}")
+            # Try alternative approach using _OriginExt
+            try:
+                import OriginExt._OriginExt as oext
+                gl_obj = get_originext_graphlayer(self)
+                oext.OriginObject_DoMethod(gl_obj, "Rescale")
+            except Exception as e2:
+                print(f"Alternative rescale method also failed: {e2}")
+
+    def add_xy_plot(self, worksheet, x_col: int, y_col: int, 
+                   plot_type: PlotType = PlotType.LINE_SYMBOL) -> DataPlot:
+        """
+        Add an XY plot from worksheet columns.
+        Based on Origin Sample #4: gl.add_plot(wks, coly='B', colx='A', type=202)
+
+        Args:
+            worksheet: Worksheet object containing data
+            x_col: X column index (0-based)
+            y_col: Y column index (0-based) or -1 for all columns after x_col
+            plot_type: PlotType enum value
+
+        Returns:
+            DataPlot: The newly created data plot
+        """
+        # Convert column indices to column letters (A, B, C, ...) like in Sample #4
+        def col_index_to_letter(col_idx: int) -> str:
+            """Convert 0-based column index to column letter (A, B, C, ...)"""
+            result = ""
+            col_idx += 1  # Convert to 1-based for calculation
+            while col_idx > 0:
+                col_idx -= 1
+                result = chr(65 + (col_idx % 26)) + result
+                col_idx //= 26
+            return result
+        
+        x_col_letter = col_index_to_letter(x_col)
+        
+        if y_col == -1:
+            # Plot all columns after x_col as Y - use the first Y column for now
+            # This is a limitation - Sample #4 plots one Y at a time
+            y_col_letter = col_index_to_letter(x_col + 1)
+        else:
+            y_col_letter = col_index_to_letter(y_col)
+        
+        # Use full worksheet reference like in Sample #4: [BookName]SheetName!col
+        # Get worksheet name and parent book name
+        wks_name = worksheet.Name
+        page = worksheet.get_page()
+        book_name = page.Name
+        
+        # Create range string with full worksheet reference
+        range_str = f"[{book_name}]{wks_name}!({x_col_letter},{y_col_letter})"
+        
+        print(f"Using column range: {range_str}")
+        return self.add_plot_from_string(range_str, plot_type)
 
     def get_data_plots(self) -> list[DataPlot]:
         """
         Get list of data plots in this layer.
 
-        Corresponds to: OriginExt.OriginExt.GraphLayer.GetDataPlots()
-
         Returns:
             list[DataPlot]: List of data plots
         """
-        return [DataPlot(p) for p in self._obj.GetDataPlots()]
+        import OriginExt._OriginExt as oext
+        return [DataPlot(p, self, self.origin_instance) for p in oext.GraphLayer_GetDataPlots(self._obj)]
 
     def get_graph_objects(self):
         """

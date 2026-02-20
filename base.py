@@ -44,20 +44,52 @@ class OriginObjectWrapper(Generic[TOriginObject]):
     """
     Abstract base class for wrapping OriginExt.OriginObject.
     Provides common properties and methods inherited from OriginBase and OriginObject.
+    Includes parent and origin instance references for hierarchical access.
 
     Corresponds to: OriginExt.OriginExt.OriginObject, OriginExt.OriginExt.OriginBase
     """
 
-    _obj: TOriginObject
-
-    def __init__(self, obj: TOriginObject):
+    def __init__(self, obj: TOriginObject, parent: Optional['OriginObjectWrapper'] = None, 
+                 origin_instance: Optional['OriginInstance'] = None):
         """
-        Initialize OriginObjectWrapper.
+        Initialize the wrapper with OriginExt object and hierarchical references.
 
         Args:
-            obj: Original OriginExt.OriginObject instance to wrap
+            obj: Original OriginExt object to wrap
+            parent: Parent wrapper object (for hierarchical navigation)
+            origin_instance: Root OriginInstance reference (for LabTalk access)
         """
         self._obj = obj
+        self._parent = parent
+        self._origin_instance = origin_instance
+
+    @property
+    def parent(self) -> Optional['OriginObjectWrapper']:
+        """Get the parent wrapper object"""
+        return self._parent
+
+    @property
+    def origin_instance(self) -> Optional['OriginInstance']:
+        """Get the root OriginInstance reference"""
+        if self._origin_instance:
+            return self._origin_instance
+        elif self._parent:
+            return self._parent.origin_instance
+        return None
+
+    def get_origin_instance(self) -> Optional['OriginInstance']:
+        """
+        Get the OriginInstance by traversing up the hierarchy.
+        
+        Returns:
+            OriginInstance: The root OriginInstance or None if not found
+        """
+        current = self
+        while current:
+            if hasattr(current, '_origin_instance') and current._origin_instance:
+                return current._origin_instance
+            current = getattr(current, '_parent', None)
+        return None
 
     # ================== Properties from OriginObject ==================
 

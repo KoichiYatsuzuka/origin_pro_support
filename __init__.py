@@ -36,6 +36,7 @@ from .pages import (
     GraphPage,
     MatrixPage,
     NotePage,
+    FigurePage,
 )
 
 from .layers import (
@@ -46,6 +47,10 @@ from .layers import (
     DataPlot,
     GraphLayer,
     Matrixsheet,
+    PlotType,
+    ColorMap,
+    GroupMode,
+    AxisType,
 )
 
 from .folder import (
@@ -490,9 +495,9 @@ class OriginInstance:
         pages = list(self.__core.GetWorksheetPages() if type_ == 'w' else self.__core.GetMatrixPages())
         if pages:
             if type_ == 'w':
-                return WorksheetPage(pages[-1])
+                return WorksheetPage(pages[-1], None, self)
             else:
-                return MatrixPage(pages[-1])
+                return MatrixPage(pages[-1], None, self)
         return None
 
     def new_sheet(self, type_: str = 'w', long_name: str = '', template: str = '') -> Optional[Union[Worksheet, Matrixsheet]]:
@@ -563,7 +568,7 @@ class OriginInstance:
 
         pages = list(self.__core.GetGraphPages())
         if pages:
-            return GraphPage(pages[-1])
+            return GraphPage(pages[-1], None, self)
         return None
 
     # ================== Matrix Operations ==================
@@ -749,6 +754,7 @@ __all__ = [
     'GraphPage',
     'MatrixPage',
     'NotePage',
+    'FigurePage',
     # Layer classes
     'Layer',
     'Datasheet',
@@ -757,6 +763,11 @@ __all__ = [
     'DataPlot',
     'GraphLayer',
     'Matrixsheet',
+    # Enum types
+    'PlotType',
+    'ColorMap',
+    'GroupMode',
+    'AxisType',
     # Application API
     'APP',
     'OriginPath',
