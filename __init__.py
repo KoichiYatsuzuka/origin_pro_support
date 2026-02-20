@@ -249,7 +249,8 @@ class OriginInstance:
             sys.excepthook = origin_shutdown_exception_hook
 
     def __del__(self):
-        self.close()
+        if self.__core:
+            self.close()
 
     def close(self, save_flag: bool = True) -> None:
         '''Originのインスタンスを終了する'''

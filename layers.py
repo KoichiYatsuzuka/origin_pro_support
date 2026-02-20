@@ -16,8 +16,7 @@ import OriginExt.OriginExt as oext_types
 import OriginExt._OriginExt as oext
 import pandas as pd
 from enum import Enum
-
-from typing import Iterator, TypeVar, TYPE_CHECKING, Union, Optional
+from typing import Optional, Tuple, Union, TypeVar, TYPE_CHECKING
 
 from .base import OriginObjectWrapper
 
@@ -155,6 +154,27 @@ class AxisType(Enum):
     Y = 2
     Z = 3
     ERROR = 4
+
+
+class ScaleType(Enum):
+    """Enumeration for axis scale types."""
+    LINEAR = 1
+    LOG10 = 2
+    PROBABILITY = 3
+    PROBIT = 4
+    RECIPROCAL = 5
+    OFFSET_RECIPROCAL = 6
+    LOGIT = 7
+    LN = 8
+    LOG2 = 9
+
+
+class TickType(Enum):
+    """Enumeration for tick types."""
+    NONE = 0
+    IN = 1
+    OUT = 2
+    IN_OUT = 3
 
 
 # ================== Layer Classes ==================
@@ -991,6 +1011,335 @@ class DataPlot:
         return self._plot.ChangeData(data_obj, designation, keep_modifiers)
 
 
+class Axis:
+    """
+    Axis object for manipulating graph layer axes.
+    Provides methods to get and modify axis ranges and properties.
+    """
+
+    def __init__(self, graph_layer: GraphLayer, axis_type: AxisType):
+        """
+        Initialize Axis object.
+
+        Args:
+            graph_layer: Parent GraphLayer object
+            axis_type: AxisType enum (X, Y, Z, ERROR)
+        """
+        self._graph_layer = graph_layer
+        self._axis_type = axis_type
+        self._obj = get_originext_graphlayer(graph_layer)
+
+    @property
+    def axis_type(self) -> AxisType:
+        """Get axis type"""
+        return self._axis_type
+
+    def _get_axis_letter(self) -> str:
+        """Get axis letter for LabTalk commands"""
+        axis_map = {
+            AxisType.X: 'X',
+            AxisType.Y: 'Y', 
+            AxisType.Z: 'Z',
+            AxisType.ERROR: 'E'
+        }
+        return axis_map[self._axis_type]
+
+    def get_range(self) -> tuple[float, float]:
+        """
+        Get axis range (min, max).
+
+        Returns:
+            tuple[float, float]: (min_value, max_value)
+        """
+        axis_letter = self._get_axis_letter()
+        try:
+            # Use LabTalk to get axis range
+            min_val = float(self._obj.GetNumProp(f"{axis_letter}.from"))
+            max_val = float(self._obj.GetNumProp(f"{axis_letter}.to"))
+            return (min_val, max_val)
+        except Exception as e:
+            print(f"Failed to get axis range: {e}")
+            # Try alternative approach using LabTalk command
+            try:
+                cmd = f"get {axis_letter}.from -e"
+                min_val = float(self._obj.Execute(cmd))
+                cmd = f"get {axis_letter}.to -e"  
+                max_val = float(self._obj.Execute(cmd))
+                return (min_val, max_val)
+            except Exception as e2:
+                print(f"Alternative approach also failed: {e2}")
+                raise RuntimeError(f"Failed to get {axis_letter} axis range: {e2}")
+
+    def set_range(self, min_val: float, max_val: float) -> None:
+        """
+        Set axis range.
+
+        Args:
+            min_val: Minimum value
+            max_val: Maximum value
+        """
+        axis_letter = self._get_axis_letter()
+        try:
+            # Use LabTalk to set axis range
+            self._obj.SetNumProp(f"{axis_letter}.from", min_val)
+            self._obj.SetNumProp(f"{axis_letter}.to", max_val)
+        except Exception as e:
+            print(f"Failed to set axis range: {e}")
+            # Try alternative approach using LabTalk command
+            try:
+                cmd = f"{axis_letter}.from = {min_val}"
+                self._obj.Execute(cmd)
+                cmd = f"{axis_letter}.to = {max_val}"
+                self._obj.Execute(cmd)
+            except Exception as e2:
+                print(f"Alternative approach also failed: {e2}")
+                raise RuntimeError(f"Failed to set {axis_letter} axis range: {e2}")
+
+    def get_scale(self) -> ScaleType:
+        """
+        Get axis scale type.
+
+        Returns:
+            ScaleType: Scale type enum
+        """
+        axis_letter = self._get_axis_letter()
+        try:
+            scale_val = int(self._obj.GetNumProp(f"{axis_letter}.type"))
+            return ScaleType(scale_val)
+        except Exception as e:
+            print(f"Failed to get axis scale: {e}")
+            raise RuntimeError(f"Failed to get {axis_letter} axis scale: {e}")
+
+    def set_scale(self, scale_type: ScaleType) -> None:
+        """
+        Set axis scale type.
+
+        Args:
+            scale_type: Scale type enum
+        """
+        axis_letter = self._get_axis_letter()
+        
+        try:
+            self._obj.SetNumProp(f"{axis_letter}.type", scale_type.value)
+        except Exception as e:
+            print(f"Failed to set axis scale: {e}")
+            # Try alternative approach using LabTalk command
+            try:
+                cmd = f"{axis_letter}.type = {scale_type.value}"
+                self._obj.Execute(cmd)
+            except Exception as e2:
+                print(f"Alternative approach also failed: {e2}")
+                raise RuntimeError(f"Failed to set {axis_letter} axis scale: {e2}")
+
+    def get_title(self) -> str:
+        """
+        Get axis title using originpro implementation approach.
+
+        Returns:
+            str: Axis title
+        """
+        axis_letter = self._get_axis_letter()
+        
+        try:
+            # Use originpro approach: GLayer.label() with proper label names
+            label_name_map = {
+                'X': 'xb',  # Bottom X axis
+                'X2': 'xt',  # Top X axis  
+                'Y': 'yl',  # Left Y axis
+                'Y2': 'yr',  # Right Y axis
+                'Z': 'zb',  # Bottom Z axis
+                'Z2': 'zf'   # Front Z axis
+            }
+            
+            label_name = label_name_map.get(axis_letter, 'xb' if axis_letter == 'X' else 'yl')
+            
+            # Use originpro approach: GraphObjects(name) to get label
+            label = self._obj.GraphObjects(label_name)
+            if label is None:
+                return ""
+            
+            # Get text from label object
+            if hasattr(label, 'GetText'):
+                text = label.GetText()
+                return str(text) if text else ""
+            elif hasattr(label, 'text'):
+                text = label.text
+                return str(text) if text else ""
+            
+            return ""
+            
+        except Exception as e:
+            print(f"Error getting axis title using originpro approach: {e}")
+            raise RuntimeError(f"Failed to get {axis_letter} axis title: {e}")
+
+    def set_title(self, title: str) -> None:
+        """
+        Set axis title using originpro implementation approach.
+        Only considers successful if get_title() returns the same value.
+
+        Args:
+            title: Axis title
+            
+        Raises:
+            RuntimeError: If title cannot be set successfully
+        """
+        axis_letter = self._get_axis_letter()
+        
+        try:
+            # Use originpro approach: label -{label_name} {value}
+            label_name_map = {
+                'X': 'xb',  # Bottom X axis
+                'X2': 'xt',  # Top X axis  
+                'Y': 'yl',  # Left Y axis
+                'Y2': 'yr',  # Right Y axis
+                'Z': 'zb',  # Bottom Z axis
+                'Z2': 'zf'   # Front Z axis
+            }
+            
+            label_name = label_name_map.get(axis_letter, 'xb' if axis_letter == 'X' else 'yl')
+            
+            # Use originpro approach: label -{label_name} {value}
+            cmd = f'label -{label_name} {title}'
+            result = self._obj.Execute(cmd)
+            
+            print(f"Set {axis_letter} axis title using originpro approach: '{title}'")
+            
+            # Verify the title was actually set
+            retrieved_title = self.get_title()
+            if retrieved_title == title:
+                print(f"VERIFIED: {axis_letter} axis title successfully set and retrieved")
+                return
+            else:
+                print(f"FAILED: Set '{title}' but retrieved '{retrieved_title}'")
+                raise RuntimeError(f"Title verification failed for {axis_letter} axis")
+                
+        except Exception as e:
+            print(f"Error setting axis title using originpro approach: {e}")
+            raise RuntimeError(f"Failed to set {axis_letter} axis title: {e}")
+
+    def get_major_tick_type(self) -> TickType:
+        """
+        Get major tick type.
+
+        Returns:
+            TickType: Tick type enum
+        """
+        axis_letter = self._get_axis_letter()
+        try:
+            tick_val = int(self._obj.GetNumProp(f"{axis_letter}.majortick"))
+            return TickType(tick_val)
+        except Exception as e:
+            print(f"Failed to get major tick type: {e}")
+            raise RuntimeError(f"Failed to get {axis_letter} axis major tick type: {e}")
+
+    def set_major_tick_type(self, tick_type: TickType) -> None:
+        """
+        Set major tick type.
+
+        Args:
+            tick_type: Tick type enum
+        """
+        axis_letter = self._get_axis_letter()
+        
+        try:
+            self._obj.SetNumProp(f"{axis_letter}.majortick", tick_type.value)
+        except Exception as e:
+            print(f"Failed to set major tick type: {e}")
+            # Try alternative approach using LabTalk command
+            try:
+                cmd = f"{axis_letter}.majortick = {tick_type.value}"
+                self._obj.Execute(cmd)
+            except Exception as e2:
+                print(f"Alternative approach also failed: {e2}")
+                raise RuntimeError(f"Failed to set {axis_letter} axis major tick type: {e2}")
+
+    def get_minor_ticks(self) -> int:
+        """
+        Get number of minor ticks between major ticks.
+
+        Returns:
+            int: Number of minor ticks
+        """
+        axis_letter = self._get_axis_letter()
+        try:
+            return int(self._obj.GetNumProp(f"{axis_letter}.minortick"))
+        except Exception as e:
+            print(f"Failed to get minor ticks: {e}")
+            raise RuntimeError(f"Failed to get {axis_letter} axis minor ticks: {e}")
+
+    def set_minor_ticks(self, num_ticks: int) -> None:
+        """
+        Set number of minor ticks between major ticks.
+
+        Args:
+            num_ticks: Number of minor ticks
+        """
+        axis_letter = self._get_axis_letter()
+        try:
+            self._obj.SetNumProp(f"{axis_letter}.minortick", num_ticks)
+        except Exception as e:
+            print(f"Failed to set minor ticks: {e}")
+            # Try alternative approach using LabTalk command
+            try:
+                cmd = f"{axis_letter}.minortick = {num_ticks}"
+                self._obj.Execute(cmd)
+            except Exception as e2:
+                print(f"Alternative approach also failed: {e2}")
+                raise RuntimeError(f"Failed to set {axis_letter} axis minor ticks: {e2}")
+
+    def rescale(self) -> None:
+        """
+        Rescale axis to fit data.
+        """
+        axis_letter = self._get_axis_letter()
+        try:
+            # Use LabTalk to rescale axis
+            cmd = f"layer -{axis_letter}rescale"
+            self._obj.Execute(cmd)
+        except Exception as e:
+            print(f"Failed to rescale axis: {e}")
+            # Try alternative approach
+            try:
+                self._graph_layer.rescale()
+            except Exception as e2:
+                print(f"Alternative rescale also failed: {e2}")
+                raise RuntimeError(f"Failed to rescale {axis_letter} axis: {e2}")
+
+    def reverse(self, reverse: bool = True) -> None:
+        """
+        Reverse axis direction.
+
+        Args:
+            reverse: True to reverse, False to normal direction
+        """
+        axis_letter = self._get_axis_letter()
+        try:
+            self._obj.SetNumProp(f"{axis_letter}.reverse", 1 if reverse else 0)
+        except Exception as e:
+            print(f"Failed to set axis reverse: {e}")
+            # Try alternative approach using LabTalk command
+            try:
+                cmd = f"{axis_letter}.reverse = {1 if reverse else 0}"
+                self._obj.Execute(cmd)
+            except Exception as e2:
+                print(f"Alternative approach also failed: {e2}")
+                raise RuntimeError(f"Failed to set {axis_letter} axis reverse: {e2}")
+
+    def is_reversed(self) -> bool:
+        """
+        Check if axis is reversed.
+
+        Returns:
+            bool: True if axis is reversed
+        """
+        axis_letter = self._get_axis_letter()
+        try:
+            return bool(self._obj.GetNumProp(f"{axis_letter}.reverse"))
+        except Exception as e:
+            print(f"Failed to get axis reverse status: {e}")
+            raise RuntimeError(f"Failed to get {axis_letter} axis reverse status: {e}")
+
+
 class GraphLayer(Layer[oext_types.GraphLayer]):
     """
     Graph layer for plotting data.
@@ -1217,6 +1566,151 @@ class GraphLayer(Layer[oext_types.GraphLayer]):
         """
         from .pages import GraphPage
         return GraphPage(self._obj.GetPage())
+
+    # ================== Axis Methods ==================
+
+    def get_axis(self, axis_type: AxisType) -> 'Axis':
+        """
+        Get axis object by type.
+
+        Args:
+            axis_type: AxisType enum (X, Y, Z, ERROR)
+
+        Returns:
+            Axis: Axis object
+        """
+        return Axis(self, axis_type)
+
+    def get_x_axis(self) -> 'Axis':
+        """
+        Get X axis.
+
+        Returns:
+            Axis: X axis object
+        """
+        return self.get_axis(AxisType.X)
+
+    def get_y_axis(self) -> 'Axis':
+        """
+        Get Y axis.
+
+        Returns:
+            Axis: Y axis object
+        """
+        return self.get_axis(AxisType.Y)
+
+    def get_z_axis(self) -> 'Axis':
+        """
+        Get Z axis.
+
+        Returns:
+            Axis: Z axis object
+        """
+        return self.get_axis(AxisType.Z)
+
+    def get_axis_range(self, axis_type: AxisType) -> tuple[float, float]:
+        """
+        Get axis range (min, max).
+
+        Args:
+            axis_type: AxisType enum (X, Y, Z, ERROR)
+
+        Returns:
+            tuple[float, float]: (min_value, max_value)
+        """
+        axis = self.get_axis(axis_type)
+        return axis.get_range()
+
+    def set_axis_range(self, axis_type: AxisType, min_val: float, max_val: float) -> None:
+        """
+        Set axis range.
+
+        Args:
+            axis_type: AxisType enum (X, Y, Z, ERROR)
+            min_val: Minimum value
+            max_val: Maximum value
+        """
+        axis = self.get_axis(axis_type)
+        axis.set_range(min_val, max_val)
+
+    def get_x_range(self) -> tuple[float, float]:
+        """
+        Get X axis range.
+
+        Returns:
+            tuple[float, float]: (min_value, max_value)
+        """
+        return self.get_axis_range(AxisType.X)
+
+    def set_x_range(self, min_val: float, max_val: float) -> None:
+        """
+        Set X axis range.
+
+        Args:
+            min_val: Minimum value
+            max_val: Maximum value
+        """
+        self.set_axis_range(AxisType.X, min_val, max_val)
+
+    def get_y_range(self) -> tuple[float, float]:
+        """
+        Get Y axis range.
+
+        Returns:
+            tuple[float, float]: (min_value, max_value)
+        """
+        return self.get_axis_range(AxisType.Y)
+
+    def set_y_range(self, min_val: float, max_val: float) -> None:
+        """
+        Set Y axis range.
+
+        Args:
+            min_val: Minimum value
+            max_val: Maximum value
+        """
+        self.set_axis_range(AxisType.Y, min_val, max_val)
+
+    def get_z_range(self) -> tuple[float, float]:
+        """
+        Get Z axis range.
+
+        Returns:
+            tuple[float, float]: (min_value, max_value)
+        """
+        return self.get_axis_range(AxisType.Z)
+
+    def set_z_range(self, min_val: float, max_val: float) -> None:
+        """
+        Set Z axis range.
+
+        Args:
+            min_val: Minimum value
+            max_val: Maximum value
+        """
+        self.set_axis_range(AxisType.Z, min_val, max_val)
+
+    def rescale_axis(self, axis_type: AxisType) -> None:
+        """
+        Rescale specific axis to fit data.
+
+        Args:
+            axis_type: AxisType enum (X, Y, Z, ERROR)
+        """
+        axis = self.get_axis(axis_type)
+        axis.rescale()
+
+    def rescale_x_axis(self) -> None:
+        """Rescale X axis to fit data."""
+        self.rescale_axis(AxisType.X)
+
+    def rescale_y_axis(self) -> None:
+        """Rescale Y axis to fit data."""
+        self.rescale_axis(AxisType.Y)
+
+    def rescale_z_axis(self) -> None:
+        """Rescale Z axis to fit data."""
+        self.rescale_axis(AxisType.Z)
 
 
 class Matrixsheet(Datasheet[oext_types.Matrixsheet]):
