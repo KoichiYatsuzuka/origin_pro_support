@@ -13,6 +13,7 @@ This module contains wrapper classes for Origin layers including:
 from __future__ import annotations
 
 import OriginExt.OriginExt as oext_types
+import OriginExt._OriginExt as oext
 import pandas as pd
 from enum import Enum
 
@@ -21,7 +22,7 @@ from typing import Iterator, TypeVar, TYPE_CHECKING, Union, Optional
 from .base import OriginObjectWrapper
 
 if TYPE_CHECKING:
-    from .pages import Page, WorksheetPage, GraphPage, MatrixPage
+    from .pages import Page, WorkbookPage, GraphPage, MatrixPage
 
 
 # ================== Helper Functions ==================
@@ -91,6 +92,42 @@ class PlotType(Enum):
     SURFACE = 207  # 3D surface plot
     CONTOUR = 208  # Contour plot
     HISTOGRAM = 209  # Histogram
+
+
+class XYTemplate(Enum):
+    """Enumeration for XY plot templates (input data range = XY)."""
+    LINE = "line"  # Line plot
+    SCATTER = "scatter"  # Scatter plot
+    LINE_SYMBOL = "linesymb"  # Line + Symbol plot
+    COLUMN = "column"  # Column plot
+    BAR = "bar"  # Bar plot
+    AREA = "area"  # Area plot
+    STEP = "step"  # Step plot
+    SPLINE = "spline"  # Spline curve
+    DROP_LINE = "dropline"  # Drop line plot
+    FLOATING_BAR = "floatbar"  # Floating bar plot
+    FLOATING_COLUMN = "floatcol"  # Floating column plot
+    HIGH_LOW = "hilo"  # High-Low plot
+    HIGH_LOW_CLOSE = "hiloclose"  # High-Low-Close plot
+    OHLC = "ohlc"  # Open-High-Low-Close plot
+    BOX_CHART = "box"  # Box chart
+    HISTOGRAM = "histogram"  # Histogram
+    HISTOGRAM_PLUS = "histogram+"  # Histogram + distribution
+    BINS_2D = "2dbins"  # 2D Binning
+    DENSITY = "density"  # Density plot
+    VIOLIN = "violin"  # Violin plot
+    PROFILE = "p_profile"  # Profile plot
+    ZONES = "zones"  # Zones plot
+    PIE = "pie"  # Pie chart
+    DONUT = "donut"  # Donut chart
+    PLOT_2D = "2d"  # 2D plot
+    POLAR = "polar"  # Polar plot
+    TERNARY = "ternary"  # Ternary plot
+    SMITH = "smith"  # Smith chart
+    VECTOR = "vector"  # Vector plot
+    CONTOUR = "contour"  # Contour plot
+    HEAT_MAP = "heatmap"  # Heat map
+    IMAGE = "image"  # Image plot
 
 
 class ColorMap(Enum):
@@ -291,15 +328,20 @@ class ColumnCollection:
     
     def __getitem__(self, index: int) -> Column:
         """Get column by index"""
-        return Column(self._columns[index], self._parent)
+        return Column(self._columns[index], self._parent, self._parent.origin_instance if self._parent else None)
     
     def __call__(self, index: int) -> Column:
         """Get column by index (Origin-style access)"""
-        return Column(self._columns(index), self._parent)
+        return Column(self._columns(index), self._parent, self._parent.origin_instance if self._parent else None)
     
     def __len__(self) -> int:
         """Get number of columns"""
         return len(self._columns)
+    
+    def __iter__(self):
+        """Iterate over columns, yielding wrapped Column objects"""
+        for col in self._columns:
+            yield Column(col, self._parent, self._parent.origin_instance if self._parent else None)
 
 
 class Column(OriginObjectWrapper[oext_types.Column]):
@@ -500,6 +542,12 @@ class Worksheet(Datasheet[oext_types.Worksheet]):
             origin_instance: Root OriginInstance reference (for LabTalk access)
         """
         super().__init__(worksheet, parent, origin_instance)
+        
+        # Automatically set header rows to show: Long Name, Units, Sparklines, F(x), Comments
+        self.header_rows('LUSCO')
+        
+        # Ensure sparklines are properly activated and generated
+        self._ensure_sparklines()
 
     @property
     def Columns(self):
@@ -510,11 +558,11 @@ class Worksheet(Datasheet[oext_types.Worksheet]):
     def __iter__(self) -> Iterator[Column]:
         """Iterate over columns"""
         for col in self._obj:
-            yield Column(col, self)
+            yield Column(col, self, self.origin_instance)
 
     def __getitem__(self, index: int) -> Column:
         """Get column by index"""
-        return Column(self._obj[index], self)
+        return Column(self._obj[index], self, self.origin_instance)
 
     def get_cell(self, row: int, col: int):
         """
@@ -540,18 +588,17 @@ class Worksheet(Datasheet[oext_types.Worksheet]):
         Returns:
             list[Column]: List of columns
         """
-        return [Column(c) for c in self._obj.GetColumns()]
+        return [Column(c, self, self.origin_instance) for c in self._obj.GetColumns()]
 
-    def get_page(self) -> WorksheetPage:
+    def get_page(self) -> WorkbookPage:
         """
         Get the parent workbook page.
 
         Returns:
-            WorksheetPage: Parent workbook page
+            WorkbookPage: Parent workbook page
         """
-        from .pages import WorksheetPage
-        import OriginExt._OriginExt as oext
-        return WorksheetPage(oext.Worksheet_GetPage(self._obj))
+        from .pages import WorkbookPage
+        return WorkbookPage(oext.Worksheet_GetPage(self._obj))
 
     def get_data(self, row_start: int = 0, col_start: int = 0, row_end: int = -1, col_end: int = -1, format: int = 0):
         """
@@ -583,6 +630,7 @@ class Worksheet(Datasheet[oext_types.Worksheet]):
         """
         Load pandas DataFrame into worksheet.
         Uses DataFrame column names as Origin column Long Name.
+        Attempts to generate sparklines for all columns after loading data.
 
         Args:
             df: pandas DataFrame to load into worksheet
@@ -610,6 +658,12 @@ class Worksheet(Datasheet[oext_types.Worksheet]):
             col_data = df[col_name].tolist()
             col = self.Columns(i)
             col.set_data(col_data)
+        
+        # Attempt to generate sparklines for all columns after data is loaded
+        try:
+            self.generate_sparklines()
+        except Exception as e:
+            print(f"Warning: Could not automatically generate sparklines: {e}")
 
     def from_list(self, col_index: Union[int, str], data: list, lname: Optional[str] = None, 
                   units: Optional[str] = None, comments: Optional[str] = None, 
@@ -662,6 +716,151 @@ class Worksheet(Datasheet[oext_types.Worksheet]):
                 range_str = f"[{self.get_page().Name}]${self.Name}!{col_index + 1}"
                 self._obj.Execute(f"set {range_str} -t {axis}")
 
+    def header_rows(self, spec: str = '') -> None:
+        """
+        Controls which worksheet label rows to show, same as LabTalk wks.labels string.
+        
+        Args:
+            spec: A combination of letters for column label rows to display.
+                  Common options:
+                  - 'L': Long Name
+                  - 'U': Units  
+                  - 'C': Comments
+                  - 'G': Short Name
+                  - 'S': Sparklines (attempted for all columns)
+                  - 'O': F(x)= (Formula)
+                  - 'LU': Long Name + Units
+                  - 'LUC': Long Name + Units + Comments
+                  - 'LUSCO': Long Name + Units + Sparklines + F(x) + Comments
+                  - '': Hide all label rows, keep only heading
+                  See: https://www.originlab.com/doc/LabTalk/ref/Column-Label-Row-Characters
+                  
+        Examples:
+            worksheet.header_rows('L')     # Show only Long Name
+            worksheet.header_rows('LU')    # Show Long Name and Units
+            worksheet.header_rows('LUC')   # Show Long Name, Units, and Comments
+            worksheet.header_rows('LUSCO') # Show Long Name, Units, Sparklines, F(x), Comments
+            worksheet.header_rows()        # Hide all label rows
+            
+        Note: When 'S' (Sparklines) is included, sparklines generation will be attempted
+        for ALL columns regardless of data type. Warning messages will be displayed for
+        columns where sparklines cannot be generated, but the process will continue.
+        """
+        if len(spec) == 0:
+            specs = '0'  # Hide all label rows
+        else:
+            specs = spec.upper()
+        
+        # Use the Labels method (OriginExt equivalent of ShowLabels)
+        try:
+            self._obj.Labels(specs)
+        except Exception as e:
+            # Fallback: try using LabTalk command
+            try:
+                self._obj.Execute(f"wks.labels {specs}")
+            except Exception as e2:
+                print(f"Failed to set header rows: {e}, LabTalk fallback also failed: {e2}")
+
+    def _ensure_sparklines(self) -> None:
+        """
+        Ensure sparklines are properly activated for this worksheet.
+        This method activates sparklines and attempts to generate them for all columns.
+        """
+        try:
+            # Use LabTalk command to ensure sparklines are available
+            self._obj.Execute("wks.labels *S")  # Add sparklines row if not present
+            
+            # Try to generate sparklines for all columns
+            self.generate_sparklines()
+            
+        except Exception as e:
+            print(f"Warning: Could not ensure sparklines: {e}")
+
+    def generate_sparklines(self, start_col: int = 0, end_col: int = -1) -> None:
+        """
+        Generate sparklines for all columns in the worksheet.
+        Attempts to create sparklines for every column, regardless of data type.
+        If sparklines cannot be generated for a column, displays a warning and continues.
+        
+        Args:
+            start_col: Starting column index (0-based)
+            end_col: Ending column index (-1 for all columns)
+        """
+        try:
+            # Get the actual number of columns
+            num_cols = self.get_cols()
+            if end_col == -1 or end_col >= num_cols:
+                end_col = num_cols - 1
+            
+            #print(f"Attempting to generate sparklines for columns {start_col} to {end_col}...")
+            
+            # Generate sparklines using LabTalk sparklines X-function for ALL columns
+            for col_idx in range(start_col, end_col + 1):
+                try:
+                    # Get column name/letter for LabTalk command
+                    if col_idx < 26:
+                        col_letter = chr(ord('A') + col_idx)
+                    else:
+                        col_letter = f"Col{col_idx + 1}"
+                    
+                    # Attempt to generate sparklines for this column
+                    self._obj.Execute(f"sparklines sel:=0 c1:={col_letter} c2:={col_letter}")
+                    #print(f"  [OK] Sparklines generated for column {col_idx} ({col_letter})")
+                        
+                except Exception as e:
+                    # If sparklines generation fails for this column, show warning and continue
+                    print(f"  [WARNING] Could not generate sparklines for column {col_idx} ({col_letter}): {e}")
+                    continue
+                    
+        except Exception as e:
+            print(f"[ERROR] Failed to generate sparklines: {e}")
+        
+        return
+
+    def _has_numeric_data(self, col_idx: int) -> bool:
+        """
+        Check if a column contains numeric data that can be used for sparklines.
+        
+        Args:
+            col_idx: Column index to check
+            
+        Returns:
+            bool: True if column has numeric data
+        """
+        try:
+            # Get a sample of data from the column
+            col = self.Columns(col_idx)
+            
+            # Try to get first few values to check if they're numeric
+            for row in range(min(5, self.get_rows())):
+                try:
+                    value = self.get_cell(row, col_idx)
+                    if value is not None and value != '':
+                        # Try to convert to float to check if numeric
+                        float(value)
+                        return True
+                except (ValueError, TypeError):
+                    continue
+            
+            return False
+            
+        except Exception:
+            return False
+
+    def refresh_sparklines(self) -> None:
+        """
+        Refresh sparklines for all columns in the worksheet.
+        This is useful after data changes.
+        """
+        try:
+            # Clear existing sparklines and regenerate
+            self._obj.Execute("wks.labels -S")  # Remove sparklines row
+            self._obj.Execute("wks.labels *S")  # Add sparklines row back
+            self.generate_sparklines()
+            
+        except Exception as e:
+            print(f"Warning: Could not refresh sparklines: {e}")
+
 
 class DataPlot:
     """
@@ -689,7 +888,6 @@ class DataPlot:
 
     @property
     def parent(self) -> Optional['OriginObjectWrapper']:
-        """Get the parent wrapper object"""
         return self._parent
 
     @property
@@ -714,7 +912,6 @@ class DataPlot:
     @property
     def color_map(self) -> ColorMap:
         try:
-            import OriginExt._OriginExt as oext
             color_map_str = oext.DataPlot_GetColorMap(self._plot)
             return ColorMap(color_map_str)
         except ValueError:
@@ -729,7 +926,6 @@ class DataPlot:
             print(f"Direct colormap setting failed: {e}")
             # Try alternative approach using _OriginExt
             try:
-                import OriginExt._OriginExt as oext
                 oext.OriginObject_DoMethod(self._plot, f"SetColorMap({value.value})")
             except Exception as e2:
                 print(f"Alternative colormap setting also failed: {e2}")
@@ -842,7 +1038,6 @@ class GraphLayer(Layer[oext_types.GraphLayer]):
             GraphPage: Parent graph page
         """
         from .pages import GraphPage
-        import OriginExt._OriginExt as oext
         return GraphPage(oext.GraphLayer_GetPage(self._obj))
 
     def add_plot(self, data_range, plot_type: PlotType, composite: bool = False) -> DataPlot:
@@ -857,7 +1052,6 @@ class GraphLayer(Layer[oext_types.GraphLayer]):
         Returns:
             DataPlot: The newly created data plot
         """
-        import OriginExt._OriginExt as oext
         return DataPlot(oext.GraphLayer_AddPlot(self._obj, data_range, plot_type.value, composite), 
                        self, self.origin_instance)
 
@@ -882,7 +1076,6 @@ class GraphLayer(Layer[oext_types.GraphLayer]):
         
         try:
             # Use GraphLayer_AddPlotFromString which accepts string directly
-            import OriginExt._OriginExt as oext
             
             # Get the underlying OriginExt GraphLayer object
             gl_obj = get_originext_graphlayer(self)
@@ -924,7 +1117,6 @@ class GraphLayer(Layer[oext_types.GraphLayer]):
                 print(f"Direct Group method failed: {e}")
                 # Try alternative approach using _OriginExt
                 try:
-                    import OriginExt._OriginExt as oext
                     gl_obj = get_originext_graphlayer(self)
                     oext.OriginObject_DoMethod(gl_obj, "Group")
                 except Exception as e2:
@@ -942,7 +1134,6 @@ class GraphLayer(Layer[oext_types.GraphLayer]):
             print(f"Direct Rescale method failed: {e}")
             # Try alternative approach using _OriginExt
             try:
-                import OriginExt._OriginExt as oext
                 gl_obj = get_originext_graphlayer(self)
                 oext.OriginObject_DoMethod(gl_obj, "Rescale")
             except Exception as e2:
@@ -1002,7 +1193,6 @@ class GraphLayer(Layer[oext_types.GraphLayer]):
         Returns:
             list[DataPlot]: List of data plots
         """
-        import OriginExt._OriginExt as oext
         return [DataPlot(p, self, self.origin_instance) for p in oext.GraphLayer_GetDataPlots(self._obj)]
 
     def get_graph_objects(self):

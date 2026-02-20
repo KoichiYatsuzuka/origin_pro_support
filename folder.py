@@ -7,11 +7,14 @@ from __future__ import annotations
 
 import OriginExt.OriginExt as oext_types
 
-from typing import Iterator, Optional
+from typing import Iterator, Optional, TYPE_CHECKING
 
 from .base import OriginObjectWrapper
+from .pages import PageBase, WorkbookPage, GraphPage, MatrixPage, NotePage
 
-from .pages import PageBase
+if TYPE_CHECKING:
+    from . import OriginNameConflictError
+    from .layers import XYTemplate
 
 # ================== Folder Class ==================
 
@@ -140,6 +143,36 @@ class Folder:
         """
         return list(self._folder.PageBases())
 
+    def has_page(self, name: str) -> bool:
+        """
+        Check if a page with the specified name exists in this folder.
+
+        Args:
+            name: Name of the page to check for (short name or long name)
+
+        Returns:
+            bool: True if a page with the name exists, False otherwise
+        """
+        for page in self.pages:
+            if page.Name == name or page.LongName == name:
+                return True
+        return False
+
+    def find_page(self, name: str) -> Optional[PageBase]:
+        """
+        Find a page with the specified name in this folder.
+
+        Args:
+            name: Name of the page to find (short name or long name)
+
+        Returns:
+            PageBase: The found page object, or None if not found
+        """
+        for page in self.pages:
+            if page.Name == name or page.LongName == name:
+                return page
+        return None
+
     def create_folder(self, name: str) -> Folder:
         """
         Add a new subfolder to this folder.
@@ -152,6 +185,127 @@ class Folder:
         """
         new_folder = self._folder.Folders.Add(name)
         return Folder(new_folder)
+
+    def create_workbook(self, name: str, template: str = '') -> WorkbookPage:
+        """
+        Create a new workbook page in this folder.
+
+        Args:
+            name: Name for the workbook (required)
+            template: Optional template name
+
+        Returns:
+            WorkbookPage: The newly created workbook page
+        
+        Raises:
+            OriginNameConflictError: If a page with the same name already exists in this folder
+        """
+        # Check if a page with the same name already exists
+        if self.has_page(name):
+            # Import at runtime to avoid circular dependency
+            from . import OriginNameConflictError
+            raise OriginNameConflictError(f"A page with name '{name}' already exists in folder '{self.get_name()}'")
+        
+        # Use LabTalk command to create workbook in this folder
+        cmd = f'cd "{self.get_path()}"; newbook name:="{name}" template:="{template}"'
+        self._folder.Execute(cmd.strip())
+        
+        # Get the newly created workbook by finding it by name
+        for page in self._folder.PageBases():
+            if page.Name == name or page.LongName == name:
+                return WorkbookPage(page._obj)
+        return None
+
+    def create_graph(self, name: str, template: str) -> GraphPage:
+        """
+        Create a new graph page in this folder.
+
+        Args:
+            name: Name for the graph (required)
+            template: XY template string (e.g., "scatter", "line")
+
+        Returns:
+            GraphPage: The newly created graph page
+        
+        Raises:
+            OriginNameConflictError: If a page with the same name already exists in this folder
+        """
+        # Check if a page with the same name already exists
+        if self.has_page(name):
+            # Import at runtime to avoid circular dependency
+            from . import OriginNameConflictError
+            raise OriginNameConflictError(f"A page with name '{name}' already exists in folder '{self.get_name()}'")
+        
+        # Use LabTalk command to create graph in this folder
+        # Try using the OriginInstance's LabTalk execution instead
+        cmd = f'newpanel name:="{name}" template:="{template}"'
+        self._folder.Execute(cmd.strip())
+        
+        # Get the newly created graph by finding it by name
+        for page in self._folder.PageBases():
+            if page.Name == name or page.LongName == name:
+                return GraphPage(page._obj)
+        
+        return None
+
+    def create_matrix(self, name: str, template: str = '') -> MatrixPage:
+        """
+        Create a new matrix book page in this folder.
+
+        Args:
+            name: Name for the matrix book (required)
+            template: Optional template name
+
+        Returns:
+            MatrixPage: The newly created matrix page
+        
+        Raises:
+            OriginNameConflictError: If a page with the same name already exists in this folder
+        """
+        # Check if a page with the same name already exists
+        if self.has_page(name):
+            # Import at runtime to avoid circular dependency
+            from . import OriginNameConflictError
+            raise OriginNameConflictError(f"A page with name '{name}' already exists in folder '{self.get_name()}'")
+        
+        # Use LabTalk command to create matrix book in this folder
+        cmd = f'cd "{self.get_path()}"; newmatrix name:="{name}" template:="{template}"'
+        self._folder.Execute(cmd.strip())
+        
+        # Get the newly created matrix book by finding it by name
+        for page in self._folder.PageBases():
+            if page.Name == name or page.LongName == name:
+                return MatrixPage(page._obj)
+        return None
+
+    def create_notes(self, name: str) -> NotePage:
+        """
+        Create a new notes page in this folder.
+
+        Args:
+            name: Name for the notes window (required)
+
+        Returns:
+            NotePage: The newly created notes page
+        
+        Raises:
+            OriginNameConflictError: If a page with the same name already exists in this folder
+        """
+        # Check if a page with the same name already exists
+        if self.has_page(name):
+            # Import at runtime to avoid circular dependency
+            from . import OriginNameConflictError
+            raise OriginNameConflictError(f"A page with name '{name}' already exists in folder '{self.get_name()}'")
+        
+        # Use LabTalk command to create notes in this folder
+        cmd = f'cd "{self.get_path()}"; win -n n "{name}"'
+        self._folder.Execute(cmd)
+        
+        # Get the newly created notes page by finding it by name
+        for page in self._folder.PageBases():
+            if page.Name == name or page.LongName == name:
+                return NotePage(page._obj)
+        return None
 
     def __repr__(self) -> str:
         """

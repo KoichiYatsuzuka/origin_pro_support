@@ -13,6 +13,7 @@ This module contains wrapper classes for Origin pages including:
 from __future__ import annotations
 
 import OriginExt.OriginExt as oext_types
+import OriginExt._OriginExt as oext
 
 from typing import Iterator, TypeVar, TYPE_CHECKING, Optional
 import numpy as np
@@ -20,7 +21,7 @@ import numpy as np
 from .base import OriginObjectWrapper
 
 if TYPE_CHECKING:
-    from .layers import Layer, Worksheet, GraphLayer, Matrixsheet, DataPlot, PlotType, ColorMap, GroupMode
+    from .layers import Layer, Worksheet, GraphLayer, Matrixsheet, DataPlot, PlotType, XYTemplate, ColorMap, GroupMode
     from . import OriginInstance
 
 
@@ -61,7 +62,7 @@ class Folder(OriginObjectWrapper[oext_types.Folder]):
         pages = []
         for page in self._obj.Pages:
             if page.Type == 1:  # Worksheet
-                pages.append(WorksheetPage(page, self, self.origin_instance))
+                pages.append(WorkbookPage(page, self, self.origin_instance))
             elif page.Type == 2:  # Graph
                 pages.append(GraphPage(page, self, self.origin_instance))
             elif page.Type == 3:  # Matrix
@@ -228,9 +229,9 @@ class Page(PageBase[TPage]):
         return self._obj.Preview(fname)
 
 
-class WorksheetPage(Page[oext_types.WorksheetPage]):
+class WorkbookPage(Page[oext_types.WorksheetPage]):
     """
-    Workbook page containing worksheet layers.
+    Workbook page containing worksheets.
     Wrapper class that wraps OriginExt.OriginExt.WorksheetPage.
 
     Corresponds to: originpro.WBook, OriginExt.OriginExt.WorksheetPage
@@ -239,7 +240,7 @@ class WorksheetPage(Page[oext_types.WorksheetPage]):
     def __init__(self, page: oext_types.WorksheetPage, parent: Optional['OriginObjectWrapper'] = None, 
                  origin_instance: Optional['OriginInstance'] = None):
         """
-        Initialize WorksheetPage wrapper with hierarchical references.
+        Initialize WorkbookPage wrapper with hierarchical references.
 
         Args:
             page: Original OriginExt.WorksheetPage instance to wrap
@@ -545,32 +546,40 @@ class FigurePage(GraphPage):
     Provides object-oriented interface for creating and managing plots with enum-based controls.
     """
 
-    def __init__(self, graph_page: GraphPage, template: str = 'Origin'):
+    def __init__(self, graph_page: GraphPage, template = None):
         """
         Initialize FigurePage with hierarchical references.
 
         Args:
             graph_page: GraphPage object to wrap
-            template: Template name for the graph
+            template: XY template enum for the graph
         """
         super().__init__(graph_page._obj, graph_page.parent, graph_page.origin_instance)
+        
+        # Import XYTemplate at runtime to avoid circular imports
+        if template is None:
+            from .layers import XYTemplate
+            template = XYTemplate.LINE
+        
         self._template = template
 
     @classmethod
-    def create_new(cls, name: str = '', template: str = 'scatter') -> FigurePage:
+    def create_new(cls, name: str = '', template = None) -> FigurePage:
         """
         Create a new FigurePage with specified template.
 
         Args:
             name: Optional name for the new page
-            template: Graph template name
+            template: XY template enum
 
         Returns:
             FigurePage: New FigurePage instance
         """
-        # Import here to avoid circular imports
-        import sys
-        import os
+        
+        # Import XYTemplate at runtime to avoid circular imports
+        if template is None:
+            from .layers import XYTemplate
+            template = XYTemplate.SCATTER
         
         # Get the OriginInstance from the current context
         # This is a workaround - in practice, users should use origin.new_graph()
@@ -582,8 +591,7 @@ class FigurePage(GraphPage):
             from . import OriginInstance
             if hasattr(OriginInstance, '_OriginInstance__instance_count') and OriginInstance._OriginInstance__instance_count > 0:
                 # Use LabTalk through the existing instance
-                import OriginExt.OriginExt as oext
-                cmd = f'newpanel name:="{name}" template:="{template}"' if name else f'newpanel template:="{template}"'
+                cmd = f'newpanel name:="{name}" template:="{template.value}"' if name else f'newpanel template:="{template.value}"'
                 oext.LT_execute(cmd.strip())
                 
                 # Get the newly created graph page

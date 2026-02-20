@@ -32,7 +32,7 @@ from .base import (
 from .pages import (
     PageBase,
     Page,
-    WorksheetPage,
+    WorkbookPage,
     GraphPage,
     MatrixPage,
     NotePage,
@@ -48,6 +48,7 @@ from .layers import (
     GraphLayer,
     Matrixsheet,
     PlotType,
+    XYTemplate,
     ColorMap,
     GroupMode,
     AxisType,
@@ -109,6 +110,10 @@ class OriginInstanceGenerationError(BaseException):
     pass
 
 class OriginTooManyInstancesError(BaseException):
+    pass
+
+class OriginNameConflictError(BaseException):
+    """Exception raised when trying to create an object with a name that already exists."""
     pass
 
 
@@ -416,7 +421,7 @@ class OriginInstance:
 
     # ================== Workbook / Worksheet Operations ==================
 
-    def get_workbook_pages(self) -> list[WorksheetPage]:
+    def get_workbook_pages(self) -> list[WorkbookPage]:
         """
         Get all workbook pages in the project.
 
@@ -425,38 +430,43 @@ class OriginInstance:
         Returns:
             list: List of workbook page objects
         """
-        return [WorksheetPage(p) for p in self.__core.GetWorksheetPages()]
+        return [WorkbookPage(p) for p in self.__core.GetWorksheetPages()]
 
-    def get_worksheet_pages(self) -> list[WorksheetPage]:
+    def get_worksheet_pages(self) -> list[WorkbookPage]:
         """
         Get all worksheet pages in the project (alias for get_workbook_pages).
 
         Corresponds to: originpro.pages('w')
 
         Returns:
-            list: List of worksheet page objects
+            list: List of workbook page objects
         """
-        return [WorksheetPage(p) for p in self.__core.GetWorksheetPages()]
+        return [WorkbookPage(p) for p in self.__core.GetWorksheetPages()]
 
-    def find_sheet(self, name: str) -> Optional[Worksheet]:
-        """
-        Find a worksheet by name (short name or long name).
+    # def find_sheet(self, name: str) -> Optional[Worksheet]:
+    #     """
+    #     Find a worksheet by name (short name or long name).
 
-        Corresponds to: originpro.find_sheet('w', name)
+    #     Corresponds to: originpro.find_sheet('w', name)
 
-        Args:
-            name: Name of the worksheet to find
-        Returns:
-            Worksheet object or None if not found
-        """
-        for page in self.__core.GetWorksheetPages():
-            if page.Name == name or page.LongName == name:
-                # Get the first sheet in the workbook
-                if page.Layers.Count > 0:
-                    return Worksheet(page.Layers(0))
-        return None
+    #     Args:
+    #         name: Name of the worksheet to find
+    #     Returns:
+    #         Worksheet object or None if not found
+    #     """
+    #     for page in self.__core.GetWorksheetPages():
+    #         if page.Name == name or page.LongName == name:
+    #             # Get the first sheet in the workbook
+    #             if page.Layers.Count > 0:
+    #                 return Worksheet(page.Layers(0))
+    #     return None
 
-    def find_book(self, name: str) -> Optional[WorksheetPage]:
+    # NOTE: To find worksheets following proper hierarchy, use:
+    # workbook = origin.find_book('WorkbookName')
+    # if workbook:
+    #     worksheet = workbook[0]  # Get first worksheet
+
+    def find_book(self, name: str) -> Optional[WorkbookPage]:
         """
         Find a workbook by name (short name or long name).
 
@@ -469,58 +479,80 @@ class OriginInstance:
         """
         for page in self.__core.GetWorksheetPages():
             if page.Name == name or page.LongName == name:
-                return WorksheetPage(page)
+                return WorkbookPage(page)
         return None
 
-    def new_book(self, type_: str = 'w', long_name: str = '', template: str = '') -> Optional[Union[WorksheetPage, MatrixPage]]:
+    def new_workbook(self, name: str, template: str = '') -> Optional[WorkbookPage]:
         """
-        Create a new workbook or matrix book.
-
-        Corresponds to: originpro.new_book()
+        Create a new workbook page in the root folder.
+        Uses direct LabTalk execution for now.
 
         Args:
-            type_: 'w' for workbook, 'm' for matrix book
-            long_name: Optional long name for the book
+            name: Name for the workbook (required)
             template: Optional template name
         Returns:
-            The created book page object, or None if creation failed
+            The created workbook page object, or None if creation failed
+        
+        Raises:
+            OriginNameConflictError: If a page with the same name already exists
         """
-        if type_ == 'w':
-            cmd = f'newbook name:="{long_name}" template:="{template}"'
-        else:
-            cmd = f'newmatrix name:="{long_name}" template:="{template}"'
+        # Check for name conflicts first
+        root_folder = self.get_root_dir()
+        if root_folder.has_page(name):
+            raise OriginNameConflictError(f"A page with name '{name}' already exists in root folder")
+        
+        # Use direct LabTalk execution
+        cmd = f'newbook name:="{name}" template:="{template}"'
         self.__core.LT_execute(cmd.strip())
-
-        # Return the newly created book (most recently created)
-        pages = list(self.__core.GetWorksheetPages() if type_ == 'w' else self.__core.GetMatrixPages())
-        if pages:
-            if type_ == 'w':
-                return WorksheetPage(pages[-1], None, self)
-            else:
-                return MatrixPage(pages[-1], None, self)
+        
+        # Find the newly created workbook
+        for page in self.__core.GetWorksheetPages():
+            if page.Name == name or page.LongName == name:
+                return WorkbookPage(page)
         return None
 
-    def new_sheet(self, type_: str = 'w', long_name: str = '', template: str = '') -> Optional[Union[Worksheet, Matrixsheet]]:
+    def new_matrixbook(self, name: str, template: str = '') -> Optional[MatrixPage]:
         """
-        Create a new workbook with a single sheet or matrix.
-
-        Corresponds to: originpro.new_sheet()
+        Create a new matrix book page in the root folder.
+        Delegates to the root folder to maintain proper hierarchy.
 
         Args:
-            type_: 'w' for worksheet, 'm' for matrix
-            long_name: Optional long name for the sheet
+            name: Name for the matrix book (required)
             template: Optional template name
         Returns:
-            The created sheet object
+            The created matrix book page object, or None if creation failed
+        
+        Raises:
+            OriginNameConflictError: If a page with the same name already exists
         """
-        book = self.new_book(type_, long_name, template)
-        if book and book.Layers.Count > 0:
-            layer = book.Layers(0)
-            if type_ == 'w':
-                return Worksheet(layer)
-            else:
-                return Matrixsheet(layer)
-        return None
+        root_folder = self.get_root_dir()
+        return root_folder.create_matrix(name, template)
+
+    # def new_sheet(self, type_: str = 'w', long_name: str = '', template: str = '') -> Optional[Union[Worksheet, Matrixsheet]]:
+    #     """
+    #     Create a new workbook with a single sheet or matrix.
+
+    #     Corresponds to: originpro.new_sheet()
+
+    #     Args:
+    #         type_: 'w' for worksheet, 'm' for matrix
+    #         long_name: Optional long name for the sheet
+    #         template: Optional template name
+    #     Returns:
+    #         The created sheet object
+    #     """
+    #     book = self.new_book(type_, long_name, template)
+    #     if book and book.Layers.Count > 0:
+    #         layer = book.Layers(0)
+    #         if type_ == 'w':
+    #             return Worksheet(layer)
+    #         else:
+    #             return Matrixsheet(layer)
+    #     return None
+
+    # NOTE: To create worksheets following proper hierarchy, use:
+    # workbook = origin.new_book('w', 'WorkbookName')
+    # worksheet = workbook[0]  # Get first worksheet
 
     # ================== Graph Operations ==================
 
@@ -551,24 +583,39 @@ class OriginInstance:
                 return GraphPage(page)
         return None
 
-    def new_graph(self, long_name: str = '', template: str = 'Origin') -> Optional[GraphPage]:
+    def new_graph(self, name: str, template = None) -> Optional[GraphPage]:
         """
-        Create a new graph page.
-
-        Corresponds to: originpro.new_graph()
+        Create a new graph page in the root folder.
+        Uses direct LabTalk execution for reliability.
 
         Args:
-            long_name: Optional long name for the graph
-            template: Template name (default: 'Origin')
+            name: Name for the graph (required)
+            template: XY template enum (default: XYTemplate.LINE)
         Returns:
             The created graph page object
+        
+        Raises:
+            OriginNameConflictError: If a page with the same name already exists
         """
-        cmd = f'newpanel name:="{long_name}" template:="{template}"'
+        # Import XYTemplate at runtime to avoid circular dependency
+        if template is None:
+            from .layers import XYTemplate
+            template = XYTemplate.LINE
+        
+        # Check for name conflicts first
+        root_folder = self.get_root_dir()
+        if root_folder.has_page(name):
+            raise OriginNameConflictError(f"A page with name '{name}' already exists in root folder")
+        
+        # Use direct LabTalk execution
+        cmd = f'newpanel name:="{name}" template:="{template.value}"'
         self.__core.LT_execute(cmd.strip())
-
-        pages = list(self.__core.GetGraphPages())
-        if pages:
-            return GraphPage(pages[-1], None, self)
+        
+        # Find the newly created graph
+        for page in self.__core.GetGraphPages():
+            if page.Name == name or page.LongName == name:
+                return GraphPage(page)
+        
         return None
 
     # ================== Matrix Operations ==================
@@ -613,24 +660,21 @@ class OriginInstance:
         """
         return [NotePage(p) for p in self.__core.GetNotesPages()]
 
-    def new_notes(self, name: str = '') -> Optional[NotePage]:
+    def new_notes(self, name: str) -> Optional[NotePage]:
         """
-        Create a new notes window.
-
-        Corresponds to: originpro.new_notes()
+        Create a new notes page in the root folder.
+        Delegates to the root folder to maintain proper hierarchy.
 
         Args:
-            name: Optional name for the notes window
+            name: Name for the notes window (required)
         Returns:
             The created notes page object
+        
+        Raises:
+            OriginNameConflictError: If a page with the same name already exists
         """
-        cmd = f'win -n n "{name}"' if name else 'win -n n'
-        self.__core.LT_execute(cmd)
-
-        pages = list(self.__core.GetNotesPages())
-        if pages:
-            return NotePage(pages[-1])
-        return None
+        root_folder = self.get_root_dir()
+        return root_folder.create_notes(name)
 
     # ================== LabTalk Variables ==================
 
@@ -699,7 +743,7 @@ class OriginInstance:
             list: List of page objects
         """
         if type_ == 'w':
-            return [WorksheetPage(p) for p in self.__core.GetWorksheetPages()]
+            return [WorkbookPage(p) for p in self.__core.GetWorksheetPages()]
         elif type_ == 'g':
             return [GraphPage(p) for p in self.__core.GetGraphPages()]
         elif type_ == 'm':
@@ -707,9 +751,8 @@ class OriginInstance:
         elif type_ == 'n':
             return [NotePage(p) for p in self.__core.GetNotesPages()]
         else:
-            # Return all pages
-            result: list[PageBase] = []
-            result.extend([WorksheetPage(p) for p in self.__core.GetWorksheetPages()])
+            # Get workbook pages
+            result = [WorkbookPage(p) for p in self.__core.GetWorksheetPages()]
             result.extend([GraphPage(p) for p in self.__core.GetGraphPages()])
             result.extend([MatrixPage(p) for p in self.__core.GetMatrixPages()])
             result.extend([NotePage(p) for p in self.__core.GetNotesPages()])
@@ -750,7 +793,7 @@ __all__ = [
     'Folder',
     'PageBase',
     'Page',
-    'WorksheetPage',
+    'WorkbookPage',
     'GraphPage',
     'MatrixPage',
     'NotePage',
@@ -765,6 +808,7 @@ __all__ = [
     'Matrixsheet',
     # Enum types
     'PlotType',
+    'XYTemplate',
     'ColorMap',
     'GroupMode',
     'AxisType',
@@ -774,6 +818,7 @@ __all__ = [
     'OriginNotFoundError',
     'OriginInstanceGenerationError',
     'OriginTooManyInstancesError',
+    'OriginNameConflictError',
     'OriginInstance',
     'ORIGIN_INSTANCE_LIMIT',
 ]

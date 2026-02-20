@@ -14,11 +14,10 @@ df = pd.DataFrame({
 origin_file = os.path.join(os.getcwd(), "test_wrappers.opju")
 origin = ops.OriginInstance(origin_file)
 
-# Test new_book returns wrapped WorksheetPage
-print("Testing new_book...")
-book = origin.new_book()
-print(f"Book type: {type(book)}")
-print(f"Book is WorksheetPage: {isinstance(book, ops.WorksheetPage)}")
+# Test new_workbook returns wrapped WorkbookPage
+book = origin.new_workbook("TestWorkbook")
+print(f"Book created: {book}")
+print(f"Book is WorkbookPage: {isinstance(book, ops.WorkbookPage)}")
 
 # Test new_sheet returns wrapped Worksheet
 print("\nTesting new_sheet...")
