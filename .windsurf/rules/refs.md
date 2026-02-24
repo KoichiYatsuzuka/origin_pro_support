@@ -20,3 +20,6 @@ OriginProSupportは、OriginLabのPython APIであるOriginProをより扱いや
   - クラスメソッドなどの情報が分かる。必要であれば下層のURLを参照。
   - https://docs.originlab.com/originpro/index.html
 
+# コーディングルール
+- Noneは基本的に返さない。例外は明示的にraiseする。
+- テストコード以外で例外は必ずさらにraiseするか、警告を表示する。
