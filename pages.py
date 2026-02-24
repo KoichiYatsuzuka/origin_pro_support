@@ -14,14 +14,17 @@ from __future__ import annotations
 
 import OriginExt.OriginExt as oext_types
 import OriginExt._OriginExt as oext
-
-from typing import Iterator, TypeVar, TYPE_CHECKING, Optional
 import numpy as np
+import pandas as pd
+from typing import Optional, Tuple, Union, TypeVar, TYPE_CHECKING, overload, List
+from collections.abc import Iterator
 
 from .base import OriginObjectWrapper
 
+# Import required classes that are used outside TYPE_CHECKING
+from .layers import Layer, Worksheet, GraphLayer, Matrixsheet, DataPlot, PlotType, XYTemplate, ColorMap, GroupMode
+
 if TYPE_CHECKING:
-    from .layers import Layer, Worksheet, GraphLayer, Matrixsheet, DataPlot, PlotType, XYTemplate, ColorMap, GroupMode
     from . import OriginInstance
 
 
@@ -165,27 +168,11 @@ class Page(PageBase[TPage]):
 
     def __getitem__(self, index: int) -> Layer:
         """Get layer by index"""
-        from .layers import Layer
         return Layer(self._obj[index], self, self.origin_instance)
 
     def __len__(self) -> int:
         """Get number of layers"""
         return len(self._obj)
-
-    def add_layer(self, name: str = '') -> Layer:
-        """
-        Add a new layer to this page.
-
-        Corresponds to: OriginExt.OriginExt.Page.AddLayer()
-
-        Args:
-            name: Optional name for the new layer
-
-        Returns:
-            Layer: The newly created layer
-        """
-        from .layers import Layer
-        return Layer(self._obj.AddLayer(name), self, self.origin_instance)
 
     def get_layers(self) -> list[Layer]:
         """
@@ -196,7 +183,6 @@ class Page(PageBase[TPage]):
         Returns:
             list[Layer]: List of layers
         """
-        from .layers import Layer
         return [Layer(l, self, self.origin_instance) for l in self._obj.GetLayers()]
 
     def get_layer(self, index: int) -> Layer:
@@ -211,7 +197,6 @@ class Page(PageBase[TPage]):
         Returns:
             Layer: The layer at the specified index
         """
-        from .layers import Layer
         return Layer(self._obj.GetLayer(index), self, self.origin_instance)
 
     def preview(self, fname: str) -> bool:
@@ -251,13 +236,11 @@ class WorkbookPage(Page[oext_types.WorksheetPage]):
 
     def __iter__(self) -> Iterator[Worksheet]:
         """Iterate over worksheets"""
-        from .layers import Worksheet
         for layer in self._obj:
             yield Worksheet(layer, self, self.origin_instance)
 
     def __getitem__(self, index: int) -> Worksheet:
         """Get worksheet by index"""
-        from .layers import Worksheet
         return Worksheet(self._obj[index], self, self.origin_instance)
 
     def get_layers(self) -> list[Worksheet]:
@@ -269,7 +252,6 @@ class WorkbookPage(Page[oext_types.WorksheetPage]):
         Returns:
             list[Worksheet]: List of worksheets
         """
-        from .layers import Worksheet
         return [Worksheet(l, self, self.origin_instance) for l in self._obj.GetLayers()]
 
     def get_layer(self, index: int) -> Worksheet:
@@ -284,8 +266,82 @@ class WorkbookPage(Page[oext_types.WorksheetPage]):
         Returns:
             Worksheet: The worksheet at the specified index
         """
-        from .layers import Worksheet
         return Worksheet(self._obj.GetLayer(index), self, self.origin_instance)
+
+    @overload
+    def add_worksheet(self, name: str = '') -> 'Worksheet': ...
+    
+    @overload
+    def add_worksheet(self, name: str, data: List, lname: Optional[str] = None, 
+                     units: Optional[str] = None, comments: Optional[str] = None, 
+                     axis: Optional[str] = None) -> 'Worksheet': ...
+    
+    @overload
+    def add_worksheet(self, name: str, data: pd.Series, lname: Optional[str] = None, 
+                     units: Optional[str] = None, comments: Optional[str] = None, 
+                     axis: Optional[str] = None) -> 'Worksheet': ...
+    
+    @overload
+    def add_worksheet(self, name: str, data: np.ndarray, lname: Optional[str] = None, 
+                     units: Optional[str] = None, comments: Optional[str] = None, 
+                     axis: Optional[str] = None) -> 'Worksheet': ...
+    
+    @overload
+    def add_worksheet(self, name: str, data: pd.DataFrame, lname: Optional[str] = None, 
+                     units: Optional[str] = None, comments: Optional[str] = None, 
+                     axis: Optional[str] = None) -> 'Worksheet': ...
+
+    def add_worksheet(self, name: str = '', data=None, lname: Optional[str] = None, 
+                     units: Optional[str] = None, comments: Optional[str] = None, 
+                     axis: Optional[str] = None):
+        """
+        Add a new worksheet to this workbook.
+        
+        Args:
+            name: Optional name for the new worksheet
+            data: Optional data to initialize the worksheet (list, np.ndarray, pd.Series, or pd.DataFrame)
+            lname: Optional long name for columns (when data is provided)
+            units: Optional units for columns (when data is provided)
+            comments: Optional comments for columns (when data is provided)
+            axis: Optional axis designation for columns (when data is provided)
+            
+        Returns:
+            Worksheet: The newly created worksheet
+            
+        Raises:
+            ValueError: If data type or dimension is not supported
+        """
+        # Create new worksheet
+        new_layer = self._obj.AddLayer(name)
+        new_worksheet = Worksheet(new_layer, self, self.origin_instance)
+        
+        # If data is provided, validate and add it to the worksheet
+        if data is not None:
+            # Validate data type and dimension
+            if isinstance(data, list):
+                # Check if it's a nested list (2D)
+                if data and isinstance(data[0], list):
+                    # Check for 3D or higher nested lists
+                    if data[0] and isinstance(data[0][0], list):
+                        raise ValueError("3D or higher nested lists are not supported. Use 2D list, numpy.ndarray, pandas.Series, or pandas.DataFrame")
+                    # 2D list is OK
+                # 1D list is OK
+            elif isinstance(data, np.ndarray):
+                if data.ndim > 2:
+                    raise ValueError("numpy.ndarray must be 1-dimensional or 2-dimensional")
+            elif isinstance(data, pd.Series):
+                # Series is always 1D, so it's OK
+                pass
+            elif isinstance(data, pd.DataFrame):
+                # DataFrame is always 2D, so it's OK
+                pass
+            else:
+                raise ValueError(f"Unsupported data type: {type(data)}. Supported types: list, numpy.ndarray, pandas.Series, pandas.DataFrame")
+            
+            # Add data to worksheet
+            new_worksheet.add_column_from_data(data, lname, units, comments, axis)
+        
+        return new_worksheet
 
 
 class GraphPage(Page[oext_types.GraphPage]):
@@ -335,13 +391,11 @@ class GraphPage(Page[oext_types.GraphPage]):
 
     def __iter__(self) -> Iterator[GraphLayer]:
         """Iterate over graph layers"""
-        from .layers import GraphLayer
         for layer in self._obj:
             yield GraphLayer(layer, self, self.origin_instance)
 
     def __getitem__(self, index: int) -> GraphLayer:
         """Get graph layer by index"""
-        from .layers import GraphLayer
         return GraphLayer(self._obj[index], self, self.origin_instance)
 
     def get_layers(self) -> list[GraphLayer]:
@@ -353,7 +407,6 @@ class GraphPage(Page[oext_types.GraphPage]):
         Returns:
             list[GraphLayer]: List of graph layers
         """
-        from .layers import GraphLayer
         return [GraphLayer(l, self, self.origin_instance) for l in self._obj.GetLayers()]
 
     def get_layer(self, index: int) -> GraphLayer:
@@ -368,8 +421,19 @@ class GraphPage(Page[oext_types.GraphPage]):
         Returns:
             GraphLayer: The graph layer at the specified index
         """
-        from .layers import GraphLayer
         return GraphLayer(self._obj.GetLayer(index), self, self.origin_instance)
+
+    def add_graph_layer(self, name: str = '') -> GraphLayer:
+        """
+        Add a new graph layer to this page.
+
+        Args:
+            name: Optional name for the new layer
+
+        Returns:
+            GraphLayer: The newly created layer
+        """
+        return GraphLayer(self._obj.AddLayer(name), self, self.origin_instance)
 
     def get_base_color(self) -> int:
         """
@@ -457,13 +521,11 @@ class MatrixPage(Page[oext_types.MatrixPage]):
 
     def __iter__(self) -> Iterator[Matrixsheet]:
         """Iterate over matrix sheets"""
-        from .layers import Matrixsheet
         for layer in self._obj:
             yield Matrixsheet(layer)
 
     def __getitem__(self, index: int) -> Matrixsheet:
         """Get matrix sheet by index"""
-        from .layers import Matrixsheet
         return Matrixsheet(self._obj[index])
 
     def get_layers(self) -> list[Matrixsheet]:
@@ -475,7 +537,6 @@ class MatrixPage(Page[oext_types.MatrixPage]):
         Returns:
             list[Matrixsheet]: List of matrix sheets
         """
-        from .layers import Matrixsheet
         return [Matrixsheet(l) for l in self._obj.GetLayers()]
 
     def get_layer(self, index: int) -> Matrixsheet:
@@ -490,7 +551,6 @@ class MatrixPage(Page[oext_types.MatrixPage]):
         Returns:
             Matrixsheet: The matrix sheet at the specified index
         """
-        from .layers import Matrixsheet
         return Matrixsheet(self._obj.GetLayer(index))
 
 
@@ -546,31 +606,30 @@ class FigurePage(GraphPage):
     Provides object-oriented interface for creating and managing plots with enum-based controls.
     """
 
-    def __init__(self, graph_page: GraphPage, template = None):
+    def __init__(self, graph_page: GraphPage, template: XYTemplate = None):
         """
-        Initialize FigurePage with hierarchical references.
+        Initialize FigurePage wrapper.
 
         Args:
-            graph_page: GraphPage object to wrap
-            template: XY template enum for the graph
+            graph_page: GraphPage to wrap
+            template: XYTemplate for plot type
         """
         super().__init__(graph_page._obj, graph_page.parent, graph_page.origin_instance)
         
         # Import XYTemplate at runtime to avoid circular imports
         if template is None:
-            from .layers import XYTemplate
             template = XYTemplate.LINE
         
         self._template = template
 
     @classmethod
-    def create_new(cls, name: str = '', template = None) -> FigurePage:
+    def create_new(cls, name: str = None, template: XYTemplate = None) -> 'FigurePage':
         """
-        Create a new FigurePage with specified template.
+        Create a new FigurePage.
 
         Args:
-            name: Optional name for the new page
-            template: XY template enum
+            name: Name for the new graph page
+            template: XYTemplate for plot type
 
         Returns:
             FigurePage: New FigurePage instance
@@ -578,13 +637,11 @@ class FigurePage(GraphPage):
         
         # Import XYTemplate at runtime to avoid circular imports
         if template is None:
-            from .layers import XYTemplate
             template = XYTemplate.SCATTER
         
         # Get the OriginInstance from the current context
         # This is a workaround - in practice, users should use origin.new_graph()
         # But for standalone creation, we need to access the global OriginExt
-        
         # Try to get the current Origin instance
         try:
             # Check if we have an active Origin instance
@@ -611,22 +668,8 @@ class FigurePage(GraphPage):
         Returns:
             GraphLayer: The active graph layer
         """
-        from .layers import GraphLayer
         import OriginExt._OriginExt as oext
         return GraphLayer(oext.GraphPage_GetLayer(self._obj, 0), self, self.origin_instance)
-
-    def add_layer(self, name: str = '') -> GraphLayer:
-        """
-        Add a new graph layer to this page.
-
-        Args:
-            name: Optional name for the new layer
-
-        Returns:
-            GraphLayer: The newly created layer
-        """
-        from .layers import GraphLayer
-        return GraphLayer(self._obj.AddLayer(name), self, self.origin_instance)
 
     def plot_xy_data(self, worksheet, x_col: int, y_col: int = -1,
                     plot_type = None, layer_index: int = 0,
@@ -648,7 +691,6 @@ class FigurePage(GraphPage):
         Returns:
             DataPlot: The created data plot
         """
-        from .layers import PlotType, GroupMode
         
         if plot_type is None:
             plot_type = PlotType.LINE_SYMBOL
@@ -659,7 +701,7 @@ class FigurePage(GraphPage):
         if layer_index >= len(self):
             # Add new layers if needed
             while layer_index >= len(self):
-                self.add_layer()
+                self.add_graph_layer()
         
         layer = self[layer_index]
 
@@ -702,7 +744,6 @@ class FigurePage(GraphPage):
         Returns:
             list[DataPlot]: List of created data plots
         """
-        from .layers import GroupMode
         
         plots = []
         for y_col in y_cols:
@@ -735,7 +776,6 @@ class FigurePage(GraphPage):
         Returns:
             DataPlot: The created grouped plot
         """
-        from .layers import PlotType, ColorMap, GroupMode
         
         if plot_type is None:
             plot_type = PlotType.LINE_SYMBOL

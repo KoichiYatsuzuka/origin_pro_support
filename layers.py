@@ -15,13 +15,14 @@ from __future__ import annotations
 import OriginExt.OriginExt as oext_types
 import OriginExt._OriginExt as oext
 import pandas as pd
+import numpy as np
 from enum import Enum
-from typing import Optional, Tuple, Union, TypeVar, TYPE_CHECKING
+from typing import Optional, Tuple, Union, TypeVar, TYPE_CHECKING, overload, List
 
 from .base import OriginObjectWrapper
 
 if TYPE_CHECKING:
-    from .pages import Page, WorkbookPage, GraphPage, MatrixPage
+    pass
 
 
 # ================== Helper Functions ==================
@@ -194,29 +195,11 @@ class Layer(OriginObjectWrapper[TLayer]):
         Initialize Layer wrapper with hierarchical references.
 
         Args:
-            layer: Original OriginExt.Layer instance to wrap
+            layer: Original OriginExt layer instance to wrap
             parent: Parent wrapper object (for hierarchical navigation)
             origin_instance: Root OriginInstance reference (for LabTalk access)
         """
         super().__init__(layer, parent, origin_instance)
-
-    @property
-    def Parent(self) -> Page:
-        """Parent page of this layer"""
-        from .pages import Page
-        return Page(self._obj.GetPage())
-
-    def get_page(self) -> Page:
-        """
-        Get the parent page of this layer.
-
-        Corresponds to: OriginExt.OriginExt.Layer.GetPage()
-
-        Returns:
-            Page: Parent page
-        """
-        from .pages import Page
-        return Page(self._obj.GetPage())
 
     def get_data_object_bases(self):
         """
@@ -610,15 +593,14 @@ class Worksheet(Datasheet[oext_types.Worksheet]):
         """
         return [Column(c, self, self.origin_instance) for c in self._obj.GetColumns()]
 
-    def get_page(self) -> WorkbookPage:
+    def get_parent_workbook(self) -> oext_types.WorksheetPage:
         """
         Get the parent workbook page.
 
         Returns:
-            WorkbookPage: Parent workbook page
+            WorksheetPage: Parent workbook page (OriginExt object)
         """
-        from .pages import WorkbookPage
-        return WorkbookPage(oext.Worksheet_GetPage(self._obj))
+        return oext.Worksheet_GetPage(self._obj)
 
     def get_data(self, row_start: int = 0, col_start: int = 0, row_end: int = -1, col_end: int = -1, format: int = 0):
         """
@@ -866,6 +848,235 @@ class Worksheet(Datasheet[oext_types.Worksheet]):
             
         except Exception:
             return False
+
+    @overload
+    def add_column_from_data(self, data: List, lname: Optional[str] = None, 
+                           units: Optional[str] = None, comments: Optional[str] = None, 
+                           axis: Optional[str] = None) -> 'Column': ...
+    
+    @overload
+    def add_column_from_data(self, data: pd.Series, lname: Optional[str] = None, 
+                           units: Optional[str] = None, comments: Optional[str] = None, 
+                           axis: Optional[str] = None) -> 'Column': ...
+    
+    @overload
+    def add_column_from_data(self, data: np.ndarray, lname: Optional[str] = None, 
+                           units: Optional[str] = None, comments: Optional[str] = None, 
+                           axis: Optional[str] = None) -> Union['Column', List['Column']]: ...
+    
+    @overload
+    def add_column_from_data(self, data: pd.DataFrame, lname: Optional[str] = None, 
+                           units: Optional[str] = None, comments: Optional[str] = None, 
+                           axis: Optional[str] = None) -> Union['Column', List['Column']]: ...
+
+    def add_column_from_data(self, data, lname: Optional[str] = None, 
+                           units: Optional[str] = None, comments: Optional[str] = None, 
+                           axis: Optional[str] = None):
+        """
+        Add a new column to the worksheet from various data types.
+        Overloaded based on data type and dimension.
+        
+        Args:
+            data: Input data (list, np.ndarray, pd.Series, or pd.DataFrame)
+            lname: Optional long name for the column
+            units: Optional units for the column
+            comments: Optional comments for the column
+            axis: Optional axis designation ('X', 'Y', 'Z', 'E', etc.)
+            
+        Returns:
+            Column: The newly created column (or list of columns for 2D data)
+            
+        Raises:
+            ValueError: If data type or dimension is not supported
+        """
+        
+        # Handle 1D data (list, 1D array, Series)
+        if isinstance(data, (list, pd.Series)):
+            # Check if it's a nested list (2D) - allow 2D lists for add_worksheet
+            if isinstance(data, list) and data and isinstance(data[0], list):
+                # Check for 3D or higher nested lists
+                if data[0] and isinstance(data[0][0], list):
+                    raise ValueError("3D or higher nested lists are not supported. Use 2D list, numpy.ndarray, pandas.Series, or pandas.DataFrame")
+                # 2D list - pass through to 2D handling
+                pass
+            else:
+                # 1D data handling
+                if isinstance(data, pd.Series):
+                    # Series is always 1D
+                    data = data.tolist()
+                
+                # Add one column and set the data
+                current_cols = self.get_cols()
+                self.set_cols(current_cols + 1)
+                new_col = self.Columns(current_cols)
+                
+                # Set column properties
+                if lname is not None:
+                    new_col.LongName = lname
+                if units is not None:
+                    new_col.Units = units
+                if comments is not None:
+                    new_col.Comments = comments
+                if axis is not None:
+                    # Set axis designation using LabTalk command
+                    # This corresponds to setting the column type/designation
+                    axis_map = {'X': 1, 'Y': 2, 'Z': 3, 'E': 4}  # Common axis types
+                    if isinstance(axis, str) and axis.upper() in axis_map:
+                        new_col.Type = axis_map[axis.upper()]
+                    elif isinstance(axis, int):
+                        new_col.Type = axis
+                
+                # Convert to list if needed and set data
+                if isinstance(data, np.ndarray):
+                    data = data.tolist()
+                
+                new_col.set_data(data)
+                return new_col
+            
+        # Handle 1D numpy arrays
+        elif isinstance(data, np.ndarray) and data.ndim == 1:
+            # 1D array - add one column
+            current_cols = self.get_cols()
+            self.set_cols(current_cols + 1)
+            new_col = self.Columns(current_cols)
+            
+            # Set column properties
+            if lname is not None:
+                new_col.LongName = lname
+            if units is not None:
+                new_col.Units = units
+            if comments is not None:
+                new_col.Comments = comments
+            if axis is not None:
+                # Set axis designation using LabTalk command
+                axis_map = {'X': 1, 'Y': 2, 'Z': 3, 'E': 4}  # Common axis types
+                if isinstance(axis, str) and axis.upper() in axis_map:
+                    new_col.Type = axis_map[axis.upper()]
+                elif isinstance(axis, int):
+                    new_col.Type = axis
+            
+            # Set data
+            new_col.set_data(data.tolist())
+            return new_col
+            
+        # Handle 2D data (DataFrame, 2D array, or 2D list)
+        elif isinstance(data, (pd.DataFrame, np.ndarray)) or (isinstance(data, list) and data and isinstance(data[0], list)):
+            if isinstance(data, pd.DataFrame):
+                # DataFrame: add multiple columns
+                num_cols = len(data.columns)
+                current_cols = self.get_cols()
+                self.set_cols(current_cols + num_cols)
+                
+                new_columns = []
+                for i, col_name in enumerate(data.columns):
+                    new_col = self.Columns(current_cols + i)
+                    
+                    # Set column properties
+                    if lname is None:
+                        new_col.LongName = str(col_name)
+                    else:
+                        new_col.LongName = f"{lname}_{col_name}"
+                    
+                    if units is not None:
+                        new_col.Units = units
+                    if comments is not None:
+                        new_col.Comments = comments
+                    if axis is not None:
+                        # Set axis designation using LabTalk command
+                        axis_map = {'X': 1, 'Y': 2, 'Z': 3, 'E': 4}  # Common axis types
+                        if isinstance(axis, str) and axis.upper() in axis_map:
+                            new_col.Type = axis_map[axis.upper()]
+                        elif isinstance(axis, int):
+                            new_col.Type = axis
+                    
+                    # Set data
+                    col_data = data[col_name].tolist()
+                    new_col.set_data(col_data)
+                    new_columns.append(new_col)
+                
+                return new_columns[0] if len(new_columns) == 1 else new_columns
+                
+            elif isinstance(data, np.ndarray):
+                # 2D numpy array only
+                if data.ndim != 2:
+                    raise ValueError("numpy.ndarray must be 2-dimensional for multiple columns")
+                
+                num_cols = data.shape[1]
+                current_cols = self.get_cols()
+                self.set_cols(current_cols + num_cols)
+                
+                new_columns = []
+                for i in range(num_cols):
+                    new_col = self.Columns(current_cols + i)
+                    
+                    # Set column properties
+                    if lname is not None:
+                        if num_cols == 1:
+                            new_col.LongName = lname
+                        else:
+                            new_col.LongName = f"{lname}_{i+1}"
+                    else:
+                        new_col.LongName = f"Column_{current_cols + i + 1}"
+                    
+                    if units is not None:
+                        new_col.Units = units
+                    if comments is not None:
+                        new_col.Comments = comments
+                    if axis is not None:
+                        # Set axis designation using LabTalk command
+                        axis_map = {'X': 1, 'Y': 2, 'Z': 3, 'E': 4}  # Common axis types
+                        if isinstance(axis, str) and axis.upper() in axis_map:
+                            new_col.Type = axis_map[axis.upper()]
+                        elif isinstance(axis, int):
+                            new_col.Type = axis
+                    
+                    # Set data
+                    col_data = data[:, i].tolist()
+                    new_col.set_data(col_data)
+                    new_columns.append(new_col)
+                
+                return new_columns[0] if len(new_columns) == 1 else new_columns
+                
+            elif isinstance(data, list):
+                # 2D list
+                num_cols = len(data[0]) if data else 0
+                current_cols = self.get_cols()
+                self.set_cols(current_cols + num_cols)
+                
+                new_columns = []
+                for i in range(num_cols):
+                    new_col = self.Columns(current_cols + i)
+                    
+                    # Set column properties
+                    if lname is not None:
+                        if num_cols == 1:
+                            new_col.LongName = lname
+                        else:
+                            new_col.LongName = f"{lname}_{i+1}"
+                    else:
+                        new_col.LongName = f"Column_{current_cols + i + 1}"
+                    
+                    if units is not None:
+                        new_col.Units = units
+                    if comments is not None:
+                        new_col.Comments = comments
+                    if axis is not None:
+                        # Set axis designation using LabTalk command
+                        axis_map = {'X': 1, 'Y': 2, 'Z': 3, 'E': 4}  # Common axis types
+                        if isinstance(axis, str) and axis.upper() in axis_map:
+                            new_col.Type = axis_map[axis.upper()]
+                        elif isinstance(axis, int):
+                            new_col.Type = axis
+                    
+                    # Set data from 2D list
+                    col_data = [row[i] for row in data]
+                    new_col.set_data(col_data)
+                    new_columns.append(new_col)
+                
+                return new_columns[0] if len(new_columns) == 1 else new_columns
+                
+        else:
+            raise ValueError(f"Unsupported data type: {type(data)}. Supported types: list, numpy.ndarray, pandas.Series, pandas.DataFrame")
 
     def refresh_sparklines(self) -> None:
         """
@@ -1374,20 +1585,17 @@ class GraphLayer(Layer[oext_types.GraphLayer]):
         """Iterate over data plots"""
         for plot in self._obj:
             yield DataPlot(plot, self, self.origin_instance)
-
-    def __getitem__(self, index: int) -> DataPlot:
         """Get data plot by index"""
         return DataPlot(self._obj[index], self, self.origin_instance)
 
-    def get_page(self) -> GraphPage:
+    def get_parent_graph(self) -> oext_types.GraphPage:
         """
         Get the parent graph page.
 
         Returns:
-            GraphPage: Parent graph page
+            GraphPage: Parent graph page (OriginExt object)
         """
-        from .pages import GraphPage
-        return GraphPage(oext.GraphLayer_GetPage(self._obj))
+        return oext.GraphLayer_GetPage(self._obj)
 
     def add_plot(self, data_range, plot_type: PlotType, composite: bool = False) -> DataPlot:
         """
@@ -1526,8 +1734,8 @@ class GraphLayer(Layer[oext_types.GraphLayer]):
         # Use full worksheet reference like in Sample #4: [BookName]SheetName!col
         # Get worksheet name and parent book name
         wks_name = worksheet.Name
-        page = worksheet.get_page()
-        book_name = page.Name
+        workbook_page = worksheet.get_parent_workbook()
+        book_name = workbook_page.Name
         
         # Create range string with full worksheet reference
         range_str = f"[{book_name}]{wks_name}!({x_col_letter},{y_col_letter})"
@@ -1555,17 +1763,16 @@ class GraphLayer(Layer[oext_types.GraphLayer]):
         """
         return self._obj.GetGraphObjects()
 
-    def get_page(self) -> GraphPage:
+    def get_page(self) -> oext_types.GraphPage:
         """
         Get the parent graph page.
 
         Corresponds to: OriginExt.OriginExt.GraphLayer.GetPage()
 
         Returns:
-            GraphPage: Parent graph page
+            GraphPage: Parent graph page (OriginExt object)
         """
-        from .pages import GraphPage
-        return GraphPage(self._obj.GetPage())
+        return self._obj.GetPage()
 
     # ================== Axis Methods ==================
 
@@ -1746,17 +1953,16 @@ class Matrixsheet(Datasheet[oext_types.Matrixsheet]):
         """
         return self._obj.GetMatrixObjects()
 
-    def get_page(self) -> MatrixPage:
+    def get_page(self) -> oext_types.MatrixPage:
         """
         Get the parent matrix book page.
 
         Corresponds to: OriginExt.OriginExt.Matrixsheet.GetPage()
 
         Returns:
-            MatrixPage: Parent matrix book page
+            MatrixPage: Parent matrix book page (OriginExt object)
         """
-        from .pages import MatrixPage
-        return MatrixPage(self._obj.GetPage())
+        return self._obj.GetPage()
 
     def set_shape(self, rows: int, cols: int, keep_data: bool = False) -> None:
         """
