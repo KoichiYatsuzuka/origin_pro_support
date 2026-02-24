@@ -2,13 +2,36 @@
 Base classes for OriginExt wrappers.
 
 This module contains the abstract base classes that provide common functionality
-for all OriginExt wrapper classes.
+for all OriginExt wrapper classes, and custom exception classes.
 """
 from __future__ import annotations
 
 import OriginExt.OriginExt as oext_types
 
 from typing import Iterator, Generic, TypeVar
+
+
+# ================== Custom Exception Classes ==================
+
+class OriginNotFoundError(BaseException):
+    """Raised when Origin directory or file is not found."""
+    pass
+
+class OriginInstanceGenerationError(BaseException):
+    """Raised when Origin instance generation fails."""
+    pass
+
+class OriginTooManyInstancesError(BaseException):
+    """Raised when too many Origin instances are created."""
+    pass
+
+class OriginNameConflictError(BaseException):
+    """Exception raised when trying to create an object with a name that already exists."""
+    pass
+
+class OriginPageGenerationError(BaseException):
+    """Exception raised when page generation fails."""
+    pass
 
 
 # ================== Type Variables ==================
@@ -164,11 +187,11 @@ class OriginObjectWrapper(Generic[TOriginObject]):
 
     def __repr__(self) -> str:
         """String representation"""
-        return repr(
-            "type: {}\n".format(type(self))&
-            "short name: {}\n".format(self.Name)&
+        return (
+            "type: {}\n".format(type(self)) +
+            "short name: {}\n".format(self.Name) +
             "long name: {}".format(self.LongName)
-            )
+        )
 
     # ================== Methods from OriginObject (snake_case) ==================
 

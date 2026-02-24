@@ -58,20 +58,6 @@ def get_originext_graphlayer(graphlayer_wrapper):
     # Ensure it's the correct type by checking if it has GraphLayer methods
     return obj
 
-def get_originext_worksheet(worksheet_wrapper):
-    """
-    Get the OriginExt Worksheet object from a Worksheet wrapper.
-    
-    Args:
-        worksheet_wrapper: Worksheet wrapper instance
-        
-    Returns:
-        OriginExt Worksheet object
-    """
-    obj = get_originext_obj(worksheet_wrapper)
-    return obj
-
-
 # ================== Type Variables ==================
 
 TLayer = TypeVar('TLayer', bound=oext_types.Layer)
@@ -534,15 +520,40 @@ class Worksheet(Datasheet[oext_types.Worksheet]):
     Corresponds to: originpro.WSheet, OriginExt.OriginExt.Worksheet
     """
 
-    def __init__(self, worksheet: oext_types.Worksheet, parent: Optional['OriginObjectWrapper'] = None, 
-                 origin_instance: Optional['OriginInstance'] = None):
+    @overload
+    def __init__(self, worksheet: oext_types.Worksheet, origin_instance: 'OriginInstance', 
+                 parent: 'OriginObjectWrapper') -> None: ...
+    
+    @overload
+    def __init__(self, worksheet: oext_types.Worksheet, origin_instance: 'OriginInstance', 
+                 parent: 'OriginObjectWrapper',
+                 data: pd.DataFrame) -> None: ...
+    
+    @overload
+    def __init__(self, worksheet: oext_types.Worksheet, origin_instance: 'OriginInstance', 
+                 parent: 'OriginObjectWrapper', 
+                 data: np.ndarray) -> None: ...
+    
+    @overload
+    def __init__(self, worksheet: oext_types.Worksheet, origin_instance: 'OriginInstance', 
+                 parent: 'OriginObjectWrapper',  
+                 data: List[List[Any]]) -> None: ...
+
+    def __init__(self, worksheet: oext_types.Worksheet, origin_instance: 'OriginInstance', 
+                 parent: 'OriginObjectWrapper', data: Optional[pd.DataFrame | np.ndarray | List[List[Any]]] = None):
         """
         Initialize Worksheet wrapper with hierarchical references.
+        Can optionally load data during initialization.
 
         Args:
             worksheet: Original OriginExt.Worksheet instance to wrap
-            parent: Parent wrapper object (for hierarchical navigation)
             origin_instance: Root OriginInstance reference (for LabTalk access)
+            parent: Parent wrapper object (for hierarchical navigation)
+            data: Optional data to load (pd.DataFrame, 2D np.ndarray, or 2D list)
+        
+        Raises:
+            TypeError: If data is not None and not one of the supported types
+            ValueError: If np.ndarray is not 2D or list is not 2D
         """
         super().__init__(worksheet, parent, origin_instance)
         
@@ -551,6 +562,14 @@ class Worksheet(Datasheet[oext_types.Worksheet]):
         
         # Ensure sparklines are properly activated and generated
         self._ensure_sparklines()
+        
+        # Load data if provided
+        if data is not None:
+            self.add_column_from_data(data)
+        else:
+            # Create two empty columns if no data provided
+            self.set_cols(2)
+            self.set_rows(0)
 
     @property
     def Columns(self):
@@ -593,130 +612,213 @@ class Worksheet(Datasheet[oext_types.Worksheet]):
         """
         return [Column(c, self, self.origin_instance) for c in self._obj.GetColumns()]
 
-    def get_parent_workbook(self) -> oext_types.WorksheetPage:
-        """
-        Get the parent workbook page.
+    # def get_parent_workbook(self) -> oext_types.WorksheetPage:
+    #     """
+    #     Get the parent workbook page.
 
-        Returns:
-            WorksheetPage: Parent workbook page (OriginExt object)
-        """
-        return oext.Worksheet_GetPage(self._obj)
+    #     Returns:
+    #         WorksheetPage: Parent workbook page (OriginExt object)
+    #     """
+    #     return oext.Worksheet_GetPage(self._obj)
 
-    def get_data(self, row_start: int = 0, col_start: int = 0, row_end: int = -1, col_end: int = -1, format: int = 0):
-        """
-        Get worksheet data.
+    # def get_data(self, row_start: int = 0, col_start: int = 0, row_end: int = -1, col_end: int = -1, format: int = 0):
+    #     """
+    #     Get worksheet data.
 
-        Corresponds to: OriginExt.OriginExt.Worksheet.GetData()
+    #     Corresponds to: OriginExt.OriginExt.Worksheet.GetData()
 
-        Args:
-            row_start: Starting row
-            col_start: Starting column
-            row_end: Ending row
-            col_end: Ending column
-            format: Data format
+    #     Args:
+    #         row_start: Starting row
+    #         col_start: Starting column
+    #         row_end: Ending row
+    #         col_end: Ending column
+    #         format: Data format
 
-        Returns:
-            Worksheet data
-        """
-        return self._obj.GetData(row_start, col_start, row_end, col_end, format)
+    #     Returns:
+    #         Worksheet data
+    #     """
+    #     return self._obj.GetData(row_start, col_start, row_end, col_end, format)
 
-    def set_data(self, *args):
-        """
-        Set worksheet data.
+    # def set_data(self, *args):
+    #     """
+    #     Set worksheet data.
 
-        Corresponds to: OriginExt.OriginExt.Worksheet.SetData()
-        """
-        return self._obj.SetData(*args)
+    #     Corresponds to: OriginExt.OriginExt.Worksheet.SetData()
+    #     """
+    #     return self._obj.SetData(*args)
+    # def _load_from_ndarray(self, arr: np.ndarray) -> None:
+    #     """
+    #     Load 2D numpy array into worksheet.
+    #     Uses generic column names (Column1, Column2, etc.).
+    #     Attempts to generate sparklines for all columns after loading data.
 
-    def from_df(self, df: pd.DataFrame) -> None:
-        """
-        Load pandas DataFrame into worksheet.
-        Uses DataFrame column names as Origin column Long Name.
-        Attempts to generate sparklines for all columns after loading data.
+    #     Args:
+    #         arr: 2D numpy array to load into worksheet
+    #     """
+    #     if not isinstance(arr, np.ndarray) or arr.ndim != 2:
+    #         raise ValueError("Input must be a 2D numpy array")
+        
+    #     # Ensure worksheet has enough columns
+    #     num_cols = arr.shape[1]
+    #     if self.get_cols() < num_cols:
+    #         self.set_cols(num_cols)
+        
+    #     # Ensure worksheet has enough rows
+    #     num_rows = arr.shape[0]
+    #     if self.get_rows() < num_rows:
+    #         self.set_rows(num_rows)
+        
+    #     # Set generic column names
+    #     for i in range(num_cols):
+    #         col = self.Columns(i)
+    #         col.LongName = f"Column{i+1}"
+        
+    #     # Load data column by column
+    #     for i in range(num_cols):
+    #         col_data = arr[:, i].tolist()
+    #         col = self.Columns(i)
+    #         col.set_data(col_data)
+        
+    #     # Attempt to generate sparklines for all columns after data is loaded
+    #     try:
+    #         self.generate_sparklines()
+    #     except Exception as e:
+    #         print(f"Warning: Could not automatically generate sparklines: {e}")
+    
+    # def _load_from_2d_list(self, data: List[List[Any]]) -> None:
+    #     """
+    #     Load 2D list into worksheet.
+    #     Uses generic column names (Column1, Column2, etc.).
+    #     Attempts to generate sparklines for all columns after loading data.
 
-        Args:
-            df: pandas DataFrame to load into worksheet
-        """
-        if not isinstance(df, pd.DataFrame):
-            raise TypeError("Input must be a pandas DataFrame")
+    #     Args:
+    #         data: 2D list to load into worksheet
+    #     """
+    #     if not data or not isinstance(data[0], list):
+    #         raise ValueError("Input must be a 2D list (list of lists)")
         
-        # Ensure worksheet has enough columns
-        num_cols = len(df.columns)
-        if self.get_cols() < num_cols:
-            self.set_cols(num_cols)
+    #     # Ensure all rows have the same length
+    #     num_cols = len(data[0])
+    #     for row in data:
+    #         if len(row) != num_cols:
+    #             raise ValueError("All rows in the 2D list must have the same length")
         
-        # Ensure worksheet has enough rows
-        num_rows = len(df)
-        if self.get_rows() < num_rows:
-            self.set_rows(num_rows)
+    #     # Ensure worksheet has enough columns
+    #     if self.get_cols() < num_cols:
+    #         self.set_cols(num_cols)
         
-        # Set column long names from DataFrame column names
-        for i, col_name in enumerate(df.columns):
-            col = self.Columns(i)
-            col.LongName = str(col_name)
+    #     # Ensure worksheet has enough rows
+    #     num_rows = len(data)
+    #     if self.get_rows() < num_rows:
+    #         self.set_rows(num_rows)
         
-        # Load data column by column
-        for i, col_name in enumerate(df.columns):
-            col_data = df[col_name].tolist()
-            col = self.Columns(i)
-            col.set_data(col_data)
+    #     # Set generic column names
+    #     for i in range(num_cols):
+    #         col = self.Columns(i)
+    #         col.LongName = f"Column{i+1}"
         
-        # Attempt to generate sparklines for all columns after data is loaded
-        try:
-            self.generate_sparklines()
-        except Exception as e:
-            print(f"Warning: Could not automatically generate sparklines: {e}")
+    #     # Load data column by column
+    #     for i in range(num_cols):
+    #         col_data = [row[i] for row in data]
+    #         col = self.Columns(i)
+    #         col.set_data(col_data)
+        
+    #     # Attempt to generate sparklines for all columns after data is loaded
+    #     try:
+    #         self.generate_sparklines()
+    #     except Exception as e:
+    #         print(f"Warning: Could not automatically generate sparklines: {e}")
 
-    def from_list(self, col_index: Union[int, str], data: list, lname: Optional[str] = None, 
-                  units: Optional[str] = None, comments: Optional[str] = None, 
-                  axis: Optional[str] = None) -> None:
-        """
-        Load list data into specified column with optional properties.
+    # def from_df(self, df: pd.DataFrame) -> None:
+    #     """
+    #     Load pandas DataFrame into worksheet.
+    #     Uses DataFrame column names as Origin column Long Name.
+    #     Attempts to generate sparklines for all columns after loading data.
+
+    #     Args:
+    #         df: pandas DataFrame to load into worksheet
+    #     """
+    #     if not isinstance(df, pd.DataFrame):
+    #         raise TypeError("Input must be a pandas DataFrame")
         
-        Args:
-            col_index: Column index (0-based) or column letter ('A', 'B', etc.)
-            data: List of data to load
-            lname: Optional long name for the column
-            units: Optional units for the column
-            comments: Optional comments for the column
-            axis: Optional axis designation ('X', 'Y', 'Z', 'E', etc.)
-        """
-        # Convert column letter to index if necessary
-        if isinstance(col_index, str):
-            if len(col_index) == 1 and col_index.isalpha():
-                col_index = ord(col_index.upper()) - ord('A')
-            else:
-                raise ValueError("Column letter must be a single alphabetic character (A, B, C, etc.)")
+    #     # Ensure worksheet has enough columns
+    #     num_cols = len(df.columns)
+    #     if self.get_cols() < num_cols:
+    #         self.set_cols(num_cols)
         
-        # Ensure worksheet has enough columns
-        if self.get_cols() <= col_index:
-            self.set_cols(col_index + 1)
+    #     # Ensure worksheet has enough rows
+    #     num_rows = len(df)
+    #     if self.get_rows() < num_rows:
+    #         self.set_rows(num_rows)
         
-        # Ensure worksheet has enough rows
-        if self.get_rows() < len(data):
-            self.set_rows(len(data))
+    #     # Set column long names from DataFrame column names
+    #     for i, col_name in enumerate(df.columns):
+    #         col = self.Columns(i)
+    #         col.LongName = str(col_name)
         
-        # Get the column and set data
-        col = self.Columns(col_index)
-        col.set_data(data)
+    #     # Load data column by column
+    #     for i, col_name in enumerate(df.columns):
+    #         col_data = df[col_name].tolist()
+    #         col = self.Columns(i)
+    #         col.set_data(col_data)
         
-        # Set optional properties
-        if lname is not None:
-            col.LongName = lname
-        if units is not None:
-            col.Units = units
-        if comments is not None:
-            col.Comments = comments
-        if axis is not None:
-            # Set axis designation using LabTalk command
-            # This corresponds to setting the column type/designation
-            axis_map = {'X': 1, 'Y': 2, 'Z': 3, 'E': 4}  # Common axis types
-            if axis.upper() in axis_map:
-                col.Type = axis_map[axis.upper()]
-            else:
-                # Try to set using LabTalk command for other designations
-                range_str = f"[{self.get_page().Name}]${self.Name}!{col_index + 1}"
-                self._obj.Execute(f"set {range_str} -t {axis}")
+    #     # Attempt to generate sparklines for all columns after data is loaded
+    #     try:
+    #         self.generate_sparklines()
+    #     except Exception as e:
+    #         print(f"Warning: Could not automatically generate sparklines: {e}")
+
+
+    # def from_list(self, col_index: Union[int, str], data: list, lname: Optional[str] = None, 
+    #               units: Optional[str] = None, comments: Optional[str] = None, 
+    #               axis: Optional[str] = None) -> None:
+    #     """
+    #     Load list data into specified column with optional properties.
+        
+    #     Args:
+    #         col_index: Column index (0-based) or column letter ('A', 'B', etc.)
+    #         data: List of data to load
+    #         lname: Optional long name for the column
+    #         units: Optional units for the column
+    #         comments: Optional comments for the column
+    #         axis: Optional axis designation ('X', 'Y', 'Z', 'E', etc.)
+    #     """
+    #     # Convert column letter to index if necessary
+    #     if isinstance(col_index, str):
+    #         if len(col_index) == 1 and col_index.isalpha():
+    #             col_index = ord(col_index.upper()) - ord('A')
+    #         else:
+    #             raise ValueError("Column letter must be a single alphabetic character (A, B, C, etc.)")
+        
+    #     # Ensure worksheet has enough columns
+    #     if self.get_cols() <= col_index:
+    #         self.set_cols(col_index + 1)
+        
+    #     # Ensure worksheet has enough rows
+    #     if self.get_rows() < len(data):
+    #         self.set_rows(len(data))
+        
+    #     # Get the column and set data
+    #     col = self.Columns(col_index)
+    #     col.set_data(data)
+        
+    #     # Set optional properties
+    #     if lname is not None:
+    #         col.LongName = lname
+    #     if units is not None:
+    #         col.Units = units
+    #     if comments is not None:
+    #         col.Comments = comments
+    #     if axis is not None:
+    #         # Set axis designation using LabTalk command
+    #         # This corresponds to setting the column type/designation
+    #         axis_map = {'X': 1, 'Y': 2, 'Z': 3, 'E': 4}  # Common axis types
+    #         if axis.upper() in axis_map:
+    #             col.Type = axis_map[axis.upper()]
+    #         else:
+    #             # Try to set using LabTalk command for other designations
+    #             range_str = f"[{self.get_page().Name}]${self.Name}!{col_index + 1}"
+    #             self._obj.Execute(f"set {range_str} -t {axis}")
 
     def header_rows(self, spec: str = '') -> None:
         """
@@ -890,193 +992,53 @@ class Worksheet(Datasheet[oext_types.Worksheet]):
             ValueError: If data type or dimension is not supported
         """
         
-        # Handle 1D data (list, 1D array, Series)
-        if isinstance(data, (list, pd.Series)):
-            # Check if it's a nested list (2D) - allow 2D lists for add_worksheet
-            if isinstance(data, list) and data and isinstance(data[0], list):
-                # Check for 3D or higher nested lists
-                if data[0] and isinstance(data[0][0], list):
-                    raise ValueError("3D or higher nested lists are not supported. Use 2D list, numpy.ndarray, pandas.Series, or pandas.DataFrame")
-                # 2D list - pass through to 2D handling
-                pass
+        # Early type validation
+        if not isinstance(data, (list, pd.DataFrame, pd.Series, np.ndarray)):
+            raise TypeError(f"Unsupported data type: {type(data)}. Supported types: list, numpy.ndarray, pandas.Series, pandas.DataFrame")
+        
+        # Handle 1D data with step-by-step type checking
+        # Check for pd.Series first
+        if isinstance(data, pd.Series):
+            data_list = data.tolist()
+            return self._add_column_from_1d_data(data_list, lname, units, comments, axis)
+        
+        # Check for np.ndarray
+        elif isinstance(data, np.ndarray):
+            if data.ndim == 1:
+                data_list = data.tolist()
+                return self._add_column_from_1d_data(data_list, lname, units, comments, axis)
             else:
-                # 1D data handling
-                if isinstance(data, pd.Series):
-                    # Series is always 1D
-                    data = data.tolist()
-                
-                # Add one column and set the data
-                current_cols = self.get_cols()
-                self.set_cols(current_cols + 1)
-                new_col = self.Columns(current_cols)
-                
-                # Set column properties
-                if lname is not None:
-                    new_col.LongName = lname
-                if units is not None:
-                    new_col.Units = units
-                if comments is not None:
-                    new_col.Comments = comments
-                if axis is not None:
-                    # Set axis designation using LabTalk command
-                    # This corresponds to setting the column type/designation
-                    axis_map = {'X': 1, 'Y': 2, 'Z': 3, 'E': 4}  # Common axis types
-                    if isinstance(axis, str) and axis.upper() in axis_map:
-                        new_col.Type = axis_map[axis.upper()]
-                    elif isinstance(axis, int):
-                        new_col.Type = axis
-                
-                # Convert to list if needed and set data
-                if isinstance(data, np.ndarray):
-                    data = data.tolist()
-                
-                new_col.set_data(data)
-                return new_col
+                # 2D+ array will be handled in 2D section
+                pass
+        
+        # Check for list
+        elif isinstance(data, list):
+            # Check if it's 1D list (not nested) and contains valid types
+            if not data or not isinstance(data[0], list):
+                # Validate element types
+                valid_types = (int, float, str)
+                if any(not isinstance(item, valid_types) for item in data if item is not None):
+                    raise ValueError("List elements must be int, float, or str")
+                return self._add_column_from_1d_data(data, lname, units, comments, axis)
+            else:
+                # 2D list will be handled in 2D section
+                pass
             
-        # Handle 1D numpy arrays
-        elif isinstance(data, np.ndarray) and data.ndim == 1:
-            # 1D array - add one column
-            current_cols = self.get_cols()
-            self.set_cols(current_cols + 1)
-            new_col = self.Columns(current_cols)
-            
-            # Set column properties
-            if lname is not None:
-                new_col.LongName = lname
-            if units is not None:
-                new_col.Units = units
-            if comments is not None:
-                new_col.Comments = comments
-            if axis is not None:
-                # Set axis designation using LabTalk command
-                axis_map = {'X': 1, 'Y': 2, 'Z': 3, 'E': 4}  # Common axis types
-                if isinstance(axis, str) and axis.upper() in axis_map:
-                    new_col.Type = axis_map[axis.upper()]
-                elif isinstance(axis, int):
-                    new_col.Type = axis
-            
-            # Set data
-            new_col.set_data(data.tolist())
-            return new_col
-            
-        # Handle 2D data (DataFrame, 2D array, or 2D list)
-        elif isinstance(data, (pd.DataFrame, np.ndarray)) or (isinstance(data, list) and data and isinstance(data[0], list)):
-            if isinstance(data, pd.DataFrame):
-                # DataFrame: add multiple columns
-                num_cols = len(data.columns)
-                current_cols = self.get_cols()
-                self.set_cols(current_cols + num_cols)
-                
-                new_columns = []
-                for i, col_name in enumerate(data.columns):
-                    new_col = self.Columns(current_cols + i)
-                    
-                    # Set column properties
-                    if lname is None:
-                        new_col.LongName = str(col_name)
-                    else:
-                        new_col.LongName = f"{lname}_{col_name}"
-                    
-                    if units is not None:
-                        new_col.Units = units
-                    if comments is not None:
-                        new_col.Comments = comments
-                    if axis is not None:
-                        # Set axis designation using LabTalk command
-                        axis_map = {'X': 1, 'Y': 2, 'Z': 3, 'E': 4}  # Common axis types
-                        if isinstance(axis, str) and axis.upper() in axis_map:
-                            new_col.Type = axis_map[axis.upper()]
-                        elif isinstance(axis, int):
-                            new_col.Type = axis
-                    
-                    # Set data
-                    col_data = data[col_name].tolist()
-                    new_col.set_data(col_data)
-                    new_columns.append(new_col)
-                
-                return new_columns[0] if len(new_columns) == 1 else new_columns
-                
-            elif isinstance(data, np.ndarray):
-                # 2D numpy array only
-                if data.ndim != 2:
-                    raise ValueError("numpy.ndarray must be 2-dimensional for multiple columns")
-                
-                num_cols = data.shape[1]
-                current_cols = self.get_cols()
-                self.set_cols(current_cols + num_cols)
-                
-                new_columns = []
-                for i in range(num_cols):
-                    new_col = self.Columns(current_cols + i)
-                    
-                    # Set column properties
-                    if lname is not None:
-                        if num_cols == 1:
-                            new_col.LongName = lname
-                        else:
-                            new_col.LongName = f"{lname}_{i+1}"
-                    else:
-                        new_col.LongName = f"Column_{current_cols + i + 1}"
-                    
-                    if units is not None:
-                        new_col.Units = units
-                    if comments is not None:
-                        new_col.Comments = comments
-                    if axis is not None:
-                        # Set axis designation using LabTalk command
-                        axis_map = {'X': 1, 'Y': 2, 'Z': 3, 'E': 4}  # Common axis types
-                        if isinstance(axis, str) and axis.upper() in axis_map:
-                            new_col.Type = axis_map[axis.upper()]
-                        elif isinstance(axis, int):
-                            new_col.Type = axis
-                    
-                    # Set data
-                    col_data = data[:, i].tolist()
-                    new_col.set_data(col_data)
-                    new_columns.append(new_col)
-                
-                return new_columns[0] if len(new_columns) == 1 else new_columns
-                
-            elif isinstance(data, list):
-                # 2D list
-                num_cols = len(data[0]) if data else 0
-                current_cols = self.get_cols()
-                self.set_cols(current_cols + num_cols)
-                
-                new_columns = []
-                for i in range(num_cols):
-                    new_col = self.Columns(current_cols + i)
-                    
-                    # Set column properties
-                    if lname is not None:
-                        if num_cols == 1:
-                            new_col.LongName = lname
-                        else:
-                            new_col.LongName = f"{lname}_{i+1}"
-                    else:
-                        new_col.LongName = f"Column_{current_cols + i + 1}"
-                    
-                    if units is not None:
-                        new_col.Units = units
-                    if comments is not None:
-                        new_col.Comments = comments
-                    if axis is not None:
-                        # Set axis designation using LabTalk command
-                        axis_map = {'X': 1, 'Y': 2, 'Z': 3, 'E': 4}  # Common axis types
-                        if isinstance(axis, str) and axis.upper() in axis_map:
-                            new_col.Type = axis_map[axis.upper()]
-                        elif isinstance(axis, int):
-                            new_col.Type = axis
-                    
-                    # Set data from 2D list
-                    col_data = [row[i] for row in data]
-                    new_col.set_data(col_data)
-                    new_columns.append(new_col)
-                
-                return new_columns[0] if len(new_columns) == 1 else new_columns
-                
+        # Handle 2D data with function calls
+        if isinstance(data, pd.DataFrame):
+            return self._add_column_from_dataframe(data, lname, units, comments, axis)
+        
+        elif isinstance(data, np.ndarray) and data.ndim == 2:
+            return self._add_column_from_2d_array(data, lname, units, comments, axis)
+        
+        elif isinstance(data, list) and data and isinstance(data[0], list):
+            # Validate that it's truly 2D (not 3D+)
+            if data[0] and isinstance(data[0][0], list):
+                raise ValueError("3D or higher nested lists are not supported. Use 2D list, numpy.ndarray, pandas.Series, or pandas.DataFrame")
+            return self._add_column_from_2d_list(data, lname, units, comments, axis)
+        
         else:
-            raise ValueError(f"Unsupported data type: {type(data)}. Supported types: list, numpy.ndarray, pandas.Series, pandas.DataFrame")
+            raise ValueError(f"Unsupported data format: {type(data)}. Expected 1D/2D list, numpy.ndarray, pandas.Series, or pandas.DataFrame")
 
     def refresh_sparklines(self) -> None:
         """
@@ -1091,6 +1053,196 @@ class Worksheet(Datasheet[oext_types.Worksheet]):
             
         except Exception as e:
             print(f"Warning: Could not refresh sparklines: {e}")
+
+    def _add_column_from_1d_data(self, data_list: list, lname: Optional[str] = None, 
+                                units: Optional[str] = None, comments: Optional[str] = None, 
+                                axis: Optional[str] = None) -> 'Column':
+        """
+        Add a single column from 1D list data.
+        
+        Args:
+            data_list: 1D list of data
+            lname: Optional long name for the column
+            units: Optional units for the column
+            comments: Optional comments for the column
+            axis: Optional axis designation ('X', 'Y', 'Z', 'E', etc.)
+            
+        Returns:
+            Column: The newly created column
+        """
+        # Add one column and set the data
+        current_cols = self.get_cols()
+        self.set_cols(current_cols + 1)
+        new_col = self.Columns(current_cols)
+        
+        # Set column properties
+        if lname is not None:
+            new_col.LongName = lname
+        if units is not None:
+            new_col.Units = units
+        if comments is not None:
+            new_col.Comments = comments
+        if axis is not None:
+            # Set axis designation using LabTalk command
+            axis_map = {'X': 1, 'Y': 2, 'Z': 3, 'E': 4}  # Common axis types
+            if isinstance(axis, str) and axis.upper() in axis_map:
+                new_col.Type = axis_map[axis.upper()]
+            elif isinstance(axis, int):
+                new_col.Type = axis
+        
+        # Set data
+        new_col.set_data(data_list)
+        return new_col
+
+    def _add_column_from_dataframe(self, df: pd.DataFrame, lname: Optional[str] = None, 
+                                  units: Optional[str] = None, comments: Optional[str] = None, 
+                                  axis: Optional[str] = None) -> Union['Column', List['Column']]:
+        """
+        Add multiple columns from pandas DataFrame.
+        
+        Args:
+            df: pandas DataFrame to load
+            lname: Optional base name for columns
+            units: Optional units for the columns
+            comments: Optional comments for the columns
+            axis: Optional axis designation for the columns
+            
+        Returns:
+            Column or List[Column]: The newly created column(s)
+        """
+        num_cols = len(df.columns)
+        current_cols = self.get_cols()
+        self.set_cols(current_cols + num_cols)
+        
+        new_columns = []
+        for i, col_name in enumerate(df.columns):
+            new_col = self.Columns(current_cols + i)
+            
+            # Set column properties
+            if lname is None:
+                new_col.LongName = str(col_name)
+            else:
+                new_col.LongName = f"{lname}_{col_name}"
+            
+            if units is not None:
+                new_col.Units = units
+            if comments is not None:
+                new_col.Comments = comments
+            if axis is not None:
+                axis_map = {'X': 1, 'Y': 2, 'Z': 3, 'E': 4}
+                if isinstance(axis, str) and axis.upper() in axis_map:
+                    new_col.Type = axis_map[axis.upper()]
+                elif isinstance(axis, int):
+                    new_col.Type = axis
+            
+            # Set data
+            col_data = df[col_name].tolist()
+            new_col.set_data(col_data)
+            new_columns.append(new_col)
+        
+        return new_columns[0] if len(new_columns) == 1 else new_columns
+
+    def _add_column_from_2d_array(self, arr: np.ndarray, lname: Optional[str] = None, 
+                                 units: Optional[str] = None, comments: Optional[str] = None, 
+                                 axis: Optional[str] = None) -> Union['Column', List['Column']]:
+        """
+        Add multiple columns from 2D numpy array.
+        
+        Args:
+            arr: 2D numpy array to load
+            lname: Optional base name for columns
+            units: Optional units for the columns
+            comments: Optional comments for the columns
+            axis: Optional axis designation for the columns
+            
+        Returns:
+            Column or List[Column]: The newly created column(s)
+        """
+        num_cols = arr.shape[1]
+        current_cols = self.get_cols()
+        self.set_cols(current_cols + num_cols)
+        
+        new_columns = []
+        for i in range(num_cols):
+            new_col = self.Columns(current_cols + i)
+            
+            # Set column properties
+            if lname is not None:
+                if num_cols == 1:
+                    new_col.LongName = lname
+                else:
+                    new_col.LongName = f"{lname}_{i+1}"
+            else:
+                new_col.LongName = f"Column_{current_cols + i + 1}"
+            
+            if units is not None:
+                new_col.Units = units
+            if comments is not None:
+                new_col.Comments = comments
+            if axis is not None:
+                axis_map = {'X': 1, 'Y': 2, 'Z': 3, 'E': 4}
+                if isinstance(axis, str) and axis.upper() in axis_map:
+                    new_col.Type = axis_map[axis.upper()]
+                elif isinstance(axis, int):
+                    new_col.Type = axis
+            
+            # Set data
+            col_data = arr[:, i].tolist()
+            new_col.set_data(col_data)
+            new_columns.append(new_col)
+        
+        return new_columns[0] if len(new_columns) == 1 else new_columns
+
+    def _add_column_from_2d_list(self, data: List[List[Any]], lname: Optional[str] = None, 
+                                units: Optional[str] = None, comments: Optional[str] = None, 
+                                axis: Optional[str] = None) -> Union['Column', List['Column']]:
+        """
+        Add multiple columns from 2D list.
+        
+        Args:
+            data: 2D list to load
+            lname: Optional base name for columns
+            units: Optional units for the columns
+            comments: Optional comments for the columns
+            axis: Optional axis designation for the columns
+            
+        Returns:
+            Column or List[Column]: The newly created column(s)
+        """
+        num_cols = len(data[0]) if data else 0
+        current_cols = self.get_cols()
+        self.set_cols(current_cols + num_cols)
+        
+        new_columns = []
+        for i in range(num_cols):
+            new_col = self.Columns(current_cols + i)
+            
+            # Set column properties
+            if lname is not None:
+                if num_cols == 1:
+                    new_col.LongName = lname
+                else:
+                    new_col.LongName = f"{lname}_{i+1}"
+            else:
+                new_col.LongName = f"Column_{current_cols + i + 1}"
+            
+            if units is not None:
+                new_col.Units = units
+            if comments is not None:
+                new_col.Comments = comments
+            if axis is not None:
+                axis_map = {'X': 1, 'Y': 2, 'Z': 3, 'E': 4}
+                if isinstance(axis, str) and axis.upper() in axis_map:
+                    new_col.Type = axis_map[axis.upper()]
+                elif isinstance(axis, int):
+                    new_col.Type = axis
+            
+            # Set data from 2D list
+            col_data = [row[i] for row in data]
+            new_col.set_data(col_data)
+            new_columns.append(new_col)
+        
+        return new_columns[0] if len(new_columns) == 1 else new_columns
 
 
 class DataPlot:
