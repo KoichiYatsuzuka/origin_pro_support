@@ -22,7 +22,7 @@ from collections.abc import Iterator
 from .base import OriginObjectWrapper
 
 # Import required classes that are used outside TYPE_CHECKING
-from .layers import Layer, Worksheet, GraphLayer, Matrixsheet, DataPlot, PlotType, XYTemplate, ColorMap, GroupMode
+from .layer import Layer, Worksheet, GraphLayer, Matrixsheet, DataPlot, PlotType, XYTemplate, ColorMap, GroupMode
 
 if TYPE_CHECKING:
     from . import OriginInstance

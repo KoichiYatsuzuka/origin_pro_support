@@ -45,7 +45,7 @@ from .pages import (
     FigurePage,
 )
 
-from .layers import (
+from .layer import (
     Layer,
     Datasheet,
     Column,
@@ -592,7 +592,7 @@ if "ORIGIN_INSTANCE_LIMIT" not in globals():
 #         """
 #         # Import XYTemplate at runtime to avoid circular dependency
 #         if template is None:
-#             from .layers import XYTemplate
+#             from .layer import XYTemplate
 #             template = XYTemplate.LINE
         
 #         # Check for name conflicts first
