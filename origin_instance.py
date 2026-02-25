@@ -18,6 +18,7 @@ from .base import (
     OriginInstanceGenerationError,
     OriginTooManyInstancesError,
     OriginNameConflictError,
+    OriginPageGenerationError,
 )
 
 

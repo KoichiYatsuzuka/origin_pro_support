@@ -27,6 +27,12 @@ from typing import Optional, Union
 from .base import (
     OriginCollection,
     OriginObjectWrapper,
+    # Exception classes
+    OriginNotFoundError,
+    OriginInstanceGenerationError,
+    OriginTooManyInstancesError,
+    OriginNameConflictError,
+    OriginPageGenerationError,
 )
 
 from .pages import (
@@ -101,20 +107,6 @@ class OriginPath(Enum):
     PROJECT_DIR = "p",
     ATTACHED_FILE_DIR = "a",
     LEANING_CENTER = "l"
-
-
-class OriginNotFoundError(BaseException):
-    pass
-
-class OriginInstanceGenerationError(BaseException):
-    pass
-
-class OriginTooManyInstancesError(BaseException):
-    pass
-
-class OriginNameConflictError(BaseException):
-    """Exception raised when trying to create an object with a name that already exists."""
-    pass
 
 
 if "ORIGIN_INSTANCE_LIMIT" not in globals():
@@ -816,10 +808,12 @@ __all__ = [
     # Application API
     'APP',
     'OriginPath',
+    # Exception classes
     'OriginNotFoundError',
     'OriginInstanceGenerationError',
     'OriginTooManyInstancesError',
     'OriginNameConflictError',
+    'OriginPageGenerationError',
     'OriginInstance',
     'ORIGIN_INSTANCE_LIMIT',
 ]

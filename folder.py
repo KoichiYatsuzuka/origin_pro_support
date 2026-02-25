@@ -9,11 +9,10 @@ import OriginExt.OriginExt as oext_types
 
 from typing import Iterator, Optional, TYPE_CHECKING
 
-from .base import OriginObjectWrapper
+from .base import OriginObjectWrapper, OriginNameConflictError, OriginPageGenerationError
 from .pages import PageBase, WorkbookPage, GraphPage, MatrixPage, NotePage
 
 if TYPE_CHECKING:
-    from . import OriginNameConflictError
     from .layers import XYTemplate
 
 # ================== Folder Class ==================
@@ -206,8 +205,6 @@ class Folder:
     #     """
     #     # Check if a page with the same name already exists
     #     if self.has_page(name):
-    #         # Import at runtime to avoid circular dependency
-    #         from . import OriginNameConflictError
     #         raise OriginNameConflictError(f"A page with name '{name}' already exists in folder '{self.get_name()}'")
         
     #     # Use LabTalk command to create workbook in this folder
@@ -308,7 +305,6 @@ class Folder:
                 return WorkbookPage(page)
         
         # If not found, raise error instead of returning None
-        from . import OriginPageGenerationError
         raise OriginPageGenerationError(f"Failed to create workbook '{name}'. Command executed but workbook not found.")
     def create_graph(self, name: str, template: str) -> GraphPage:
         """
@@ -326,8 +322,6 @@ class Folder:
         """
         # Check if a page with the same name already exists
         if self.has_page(name):
-            # Import at runtime to avoid circular dependency
-            from . import OriginNameConflictError
             raise OriginNameConflictError(f"A page with name '{name}' already exists in folder '{self.get_name()}'")
         
         # Use LabTalk command to create graph in this folder
@@ -358,8 +352,6 @@ class Folder:
         """
         # Check if a page with the same name already exists
         if self.has_page(name):
-            # Import at runtime to avoid circular dependency
-            from . import OriginNameConflictError
             raise OriginNameConflictError(f"A page with name '{name}' already exists in folder '{self.get_name()}'")
         
         # Use LabTalk command to create matrix book in this folder
@@ -387,8 +379,6 @@ class Folder:
         """
         # Check if a page with the same name already exists
         if self.has_page(name):
-            # Import at runtime to avoid circular dependency
-            from . import OriginNameConflictError
             raise OriginNameConflictError(f"A page with name '{name}' already exists in folder '{self.get_name()}'")
         
         # Use LabTalk command to create notes in this folder
