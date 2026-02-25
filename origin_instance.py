@@ -92,7 +92,7 @@ class OriginInstance:
 
     path: str
     @property
-    def get_path(self) -> str:
+    def path(self) -> str:
         return self.path
 
     # 疑似static変数
@@ -477,7 +477,7 @@ class OriginInstance:
 
         Args:
             name: Name for the graph (required)
-            template: XY template enum (default: XYTemplate.LINE)
+            template: XY template enum (default: XYPlotType.LINE)
         Returns:
             The created graph page object
         

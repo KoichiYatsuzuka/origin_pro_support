@@ -19,8 +19,7 @@ from ..base import OriginObjectWrapper
 from .worksheet import Column, Worksheet, Datasheet
 from .graph_layer import DataPlot, Axis, GraphLayer
 from .enums import (
-    PlotType,
-    XYTemplate,
+    XYPlotType,
     ColorMap,
     GroupMode,
     AxisType,
@@ -125,8 +124,7 @@ __all__ = [
     # Matrix classes
     'Matrixsheet',
     # Enum types
-    'PlotType',
-    'XYTemplate',
+    'XYPlotType',
     'ColorMap',
     'GroupMode',
     'AxisType',

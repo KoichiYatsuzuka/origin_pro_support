@@ -15,7 +15,7 @@ from typing import Optional, Union, TYPE_CHECKING, List
 from collections.abc import Iterator
 
 from ..base import OriginObjectWrapper
-from .enums import ColorMap, AxisType, PlotType, GroupMode
+from .enums import ColorMap, AxisType, XYPlotType, GroupMode
 
 if TYPE_CHECKING:
     from ..origin_instance import OriginInstance
@@ -312,7 +312,7 @@ class GraphLayer(OriginObjectWrapper[oext_types.GraphLayer]):
             print(f"Failed to rescale {axis_type.name} axis: {e}")
 
     def add_xy_plot(self, worksheet, x_col: int, y_col: int = -1, 
-                   plot_type: Optional[PlotType] = None) -> DataPlot:
+                   plot_type: Optional[XYPlotType] = None) -> DataPlot:
         """
         Add an XY plot to this layer.
 
@@ -320,13 +320,13 @@ class GraphLayer(OriginObjectWrapper[oext_types.GraphLayer]):
             worksheet: Worksheet containing data
             x_col: X column index (0-based)
             y_col: Y column index (0-based) or -1 for all columns after x_col
-            plot_type: PlotType enum (defaults to LINE_SYMBOL)
+            plot_type: XYPlotType enum (defaults to LINE_SYMBOL)
 
         Returns:
             DataPlot: The created data plot
         """
         if plot_type is None:
-            plot_type = PlotType.LINE_SYMBOL
+            plot_type = XYPlotType.LINE_SYMBOL
 
         try:
             # Get the OriginExt worksheet object
@@ -335,10 +335,10 @@ class GraphLayer(OriginObjectWrapper[oext_types.GraphLayer]):
             # Create the plot using LabTalk
             if y_col == -1:
                 # Plot all columns after x_col as Y
-                cmd = f"plotxy {worksheet_obj.Name}!col({x_col + 1}) plot:={plot_type.value}"
+                cmd = f"plotxy {worksheet_obj.Name}!col({x_col + 1}) plot:={int(plot_type.value)}"
             else:
                 # Plot specific X and Y columns
-                cmd = f"plotxy {worksheet_obj.Name}!col({x_col + 1}) col({y_col + 1}) plot:={plot_type.value}"
+                cmd = f"plotxy {worksheet_obj.Name}!col({x_col + 1}) col({y_col + 1}) plot:={int(plot_type.value)}"
             
             self._obj.Execute(cmd)
             

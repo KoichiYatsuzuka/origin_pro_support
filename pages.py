@@ -22,7 +22,7 @@ from collections.abc import Iterator
 from .base import OriginObjectWrapper
 
 # Import required classes that are used outside TYPE_CHECKING
-from .layer import Layer, Worksheet, GraphLayer, Matrixsheet, DataPlot, PlotType, XYTemplate, ColorMap, GroupMode
+from .layer import Layer, Worksheet, GraphLayer, Matrixsheet, DataPlot, XYPlotType, ColorMap, GroupMode
 
 if TYPE_CHECKING:
     from . import OriginInstance
@@ -606,38 +606,36 @@ class FigurePage(GraphPage):
     Provides object-oriented interface for creating and managing plots with enum-based controls.
     """
 
-    def __init__(self, graph_page: GraphPage, template: XYTemplate = None):
+    def __init__(self, graph_page: GraphPage, template: XYPlotType = None):
         """
         Initialize FigurePage wrapper.
 
         Args:
             graph_page: GraphPage to wrap
-            template: XYTemplate for plot type
+            template: XYPlotType for plot type
         """
         super().__init__(graph_page._obj, graph_page.parent, graph_page.origin_instance)
         
-        # Import XYTemplate at runtime to avoid circular imports
         if template is None:
-            template = XYTemplate.LINE
+            template = XYPlotType.LINE
         
         self._template = template
 
     @classmethod
-    def create_new(cls, name: str = None, template: XYTemplate = None) -> 'FigurePage':
+    def create_new(cls, name: str = None, template: XYPlotType = None) -> 'FigurePage':
         """
         Create a new FigurePage.
 
         Args:
             name: Name for the new graph page
-            template: XYTemplate for plot type
+            template: XYPlotType for plot type
 
         Returns:
             FigurePage: New FigurePage instance
         """
         
-        # Import XYTemplate at runtime to avoid circular imports
         if template is None:
-            template = XYTemplate.SCATTER
+            template = XYPlotType.SCATTER
         
         # Get the OriginInstance from the current context
         # This is a workaround - in practice, users should use origin.new_graph()
@@ -648,7 +646,7 @@ class FigurePage(GraphPage):
             from . import OriginInstance
             if hasattr(OriginInstance, '_OriginInstance__instance_count') and OriginInstance._OriginInstance__instance_count > 0:
                 # Use LabTalk through the existing instance
-                cmd = f'newpanel name:="{name}" template:="{template.value}"' if name else f'newpanel template:="{template.value}"'
+                cmd = f'newpanel name:="{name}" template:="{str(template.value)}"' if name else f'newpanel template:="{str(template.value)}"'
                 oext.LT_execute(cmd.strip())
                 
                 # Get the newly created graph page
@@ -682,7 +680,7 @@ class FigurePage(GraphPage):
             worksheet: Worksheet containing data
             x_col: X column index (0-based)
             y_col: Y column index (0-based) or -1 for all columns after x_col
-            plot_type: PlotType enum (defaults to LINE_SYMBOL)
+            plot_type: XYPlotType enum (defaults to LINE_SYMBOL)
             layer_index: Layer index to plot on (0 for first layer)
             color_map: Optional ColorMap enum
             shape_list: Optional list of shape indices
@@ -693,7 +691,7 @@ class FigurePage(GraphPage):
         """
         
         if plot_type is None:
-            plot_type = PlotType.LINE_SYMBOL
+            plot_type = XYPlotType.LINE_SYMBOL
         if group_mode is None:
             group_mode = GroupMode.DEPENDENT
 
@@ -735,7 +733,7 @@ class FigurePage(GraphPage):
             worksheet: Worksheet containing data
             x_col: X column index (0-based)
             y_cols: List of Y column indices (0-based)
-            plot_type: PlotType enum (defaults to LINE_SYMBOL)
+            plot_type: XYPlotType enum (defaults to LINE_SYMBOL)
             layer_index: Layer index to plot on
             color_map: Optional ColorMap enum
             shape_list: Optional list of shape indices
@@ -771,14 +769,14 @@ class FigurePage(GraphPage):
             x_col: X column index (0-based)
             color_map: ColorMap enum for coloring
             shape_list: List of shape indices for different series
-            plot_type: PlotType enum
+            plot_type: XYPlotType enum
 
         Returns:
             DataPlot: The created grouped plot
         """
         
         if plot_type is None:
-            plot_type = PlotType.LINE_SYMBOL
+            plot_type = XYPlotType.LINE_SYMBOL
         if color_map is None:
             color_map = ColorMap.CANDY
 

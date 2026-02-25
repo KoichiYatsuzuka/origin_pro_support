@@ -5,60 +5,51 @@ This module contains all enum types used across the layer modules.
 """
 from __future__ import annotations
 
+from dataclasses import dataclass
 from enum import Enum
+
+
+# ================== Data Classes ==================
+
+@dataclass(frozen=True)
+class PlotTypeInfo:
+    """Immutable data class for plot type information.
+    See the docstring of XYPlotType for more details."""
+    numeric_value: int
+    template_value: str
+    
+    def __int__(self) -> int:
+        """Cast to int, returns numeric value."""
+        return self.numeric_value
+    
+    def __str__(self) -> str:
+        """Cast to str, returns template value."""
+        return self.template_value
 
 
 # ================== Plot Enums ==================
 
-class PlotType(Enum):
-    """Enumeration for plot types to avoid literal values."""
-    LINE = 200  # Line plot
-    SCATTER = 201  # Scatter plot
-    LINE_SYMBOL = 202  # Line + Symbol plot
-    COLUMN = 203  # Column/bar plot
-    BAR = 204  # Horizontal bar plot
-    AREA = 205  # Area plot
-    PIE = 206  # Pie chart
-    SURFACE = 207  # 3D surface plot
-    CONTOUR = 208  # Contour plot
-    HISTOGRAM = 209  # Histogram
+class XYPlotType(Enum):
+    """Enumeration for XY plot types to avoid literal values.
+    The inteer numbers correspond to the values used for LAbTalk commands.
+    Ref: https://www.originlab.com/doc/LabTalk/ref/Plot-Type-IDs \n
+    The string values correspond to the names of template files.
+    Ref: https://www.originlab.com/doc/X-Function/ref/newpanel
+    Note that the roles of theese values are slighly different.
 
-
-class XYTemplate(Enum):
-    """Enumeration for XY plot templates (input data range = XY)."""
-    LINE = "line"  # Line plot
-    SCATTER = "scatter"  # Scatter plot
-    LINE_SYMBOL = "linesymb"  # Line + Symbol plot
-    COLUMN = "column"  # Column plot
-    BAR = "bar"  # Bar plot
-    AREA = "area"  # Area plot
-    STEP = "step"  # Step plot
-    SPLINE = "spline"  # Spline curve
-    DROP_LINE = "dropline"  # Drop line plot
-    FLOATING_BAR = "floatbar"  # Floating bar plot
-    FLOATING_COLUMN = "floatcol"  # Floating column plot
-    HIGH_LOW = "hilo"  # High-Low plot
-    HIGH_LOW_CLOSE = "hiloclose"  # High-Low-Close plot
-    OHLC = "ohlc"  # Open-High-Low-Close plot
-    BOX_CHART = "box"  # Box chart
-    HISTOGRAM = "histogram"  # Histogram
-    HISTOGRAM_PLUS = "histogram+"  # Histogram + distribution
-    BINS_2D = "2dbins"  # 2D Binning
-    DENSITY = "density"  # Density plot
-    VIOLIN = "violin"  # Violin plot
-    PROFILE = "p_profile"  # Profile plot
-    ZONES = "zones"  # Zones plot
-    PIE = "pie"  # Pie chart
-    DONUT = "donut"  # Donut chart
-    PLOT_2D = "2d"  # 2D plot
-    POLAR = "polar"  # Polar plot
-    TERNARY = "ternary"  # Ternary plot
-    SMITH = "smith"  # Smith chart
-    VECTOR = "vector"  # Vector plot
-    CONTOUR = "contour"  # Contour plot
-    HEAT_MAP = "heatmap"  # Heat map
-    IMAGE = "image"  # Image plot
-
+    User-defeined plot types may be created to use user-defiend template.  
+    """
+    LINE = PlotTypeInfo(200, "line")
+    SCATTER = PlotTypeInfo(201, "scatter")
+    LINE_SYMBOL = PlotTypeInfo(202, "linesymb")
+    COLUMN = PlotTypeInfo(203, "column")
+    BAR = PlotTypeInfo(204, "bar")
+    AREA = PlotTypeInfo(205, "area")
+    PIE = PlotTypeInfo(206, "pie")
+    SURFACE = PlotTypeInfo(207, "surface")
+    CONTOUR = PlotTypeInfo(208, "contour")
+    HISTOGRAM = PlotTypeInfo(209, "histogram")
+    
 
 # ================== Color and Style Enums ==================
 
@@ -92,7 +83,9 @@ class AxisType(Enum):
 
 
 class ScaleType(Enum):
-    """Enumeration for axis scale types."""
+    """Enumeration for axis scale types.
+    The integer numbers correspond to the values used for LAbTalk commands.
+    Ref: https://www.originlab.com/doc/LabTalk/ref/Layer-Axis-obj"""
     LINEAR = 1
     LOG10 = 2
     PROBABILITY = 3
@@ -115,9 +108,10 @@ class TickType(Enum):
 # ================== Export ==================
 
 __all__ = [
+    # Data classes
+    'PlotTypeInfo',
     # Plot enums
-    'PlotType',
-    'XYTemplate',
+    'XYPlotType',
     # Color and style enums
     'ColorMap',
     'GroupMode',

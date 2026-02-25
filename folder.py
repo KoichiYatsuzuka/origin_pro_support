@@ -13,7 +13,7 @@ from .base import OriginObjectWrapper, OriginNameConflictError, OriginPageGenera
 from .pages import PageBase, WorkbookPage, GraphPage, MatrixPage, NotePage
 
 if TYPE_CHECKING:
-    from .layer import XYTemplate
+    from .layer import XYPlotType
 
 # ================== Folder Class ==================
 

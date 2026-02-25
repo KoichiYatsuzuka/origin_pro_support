@@ -318,7 +318,7 @@ class Worksheet(Datasheet[TWorksheet]):
         """
         return [Column(c, self, self.origin_instance) for c in self._obj.GetColumns()]
 
-    def header_rows(self, spec: str = '') -> None:
+    def header_rows(self, spec: str = 'LUSCO') -> None:
         """
         Controls which worksheet label rows to show, same as LabTalk wks.labels string.
         
