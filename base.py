@@ -117,57 +117,57 @@ class OriginObjectWrapper(Generic[TOriginObject]):
     # ================== Properties from OriginObject ==================
 
     @property
-    def Name(self) -> str:
+    def name(self) -> str:
         """Short name of the object"""
         return self._obj.Name
 
-    @Name.setter
-    def Name(self, value: str) -> None:
+    @name.setter
+    def name(self, value: str) -> None:
         """Set short name"""
         self._obj.Name = value
 
     @property
-    def LongName(self) -> str:
+    def long_name(self) -> str:
         """Long name of the object"""
         return self._obj.LongName
 
-    @LongName.setter
-    def LongName(self, value: str) -> None:
+    @long_name.setter
+    def long_name(self, value: str) -> None:
         """Set long name"""
         self._obj.LongName = value
 
     @property
-    def Show(self) -> bool:
+    def show(self) -> bool:
         """Visibility state of the object"""
         return self._obj.Show
 
-    @Show.setter
-    def Show(self, value: bool) -> None:
+    @show.setter
+    def show(self, value: bool) -> None:
         """Set visibility"""
         self._obj.Show = value
 
     @property
-    def Index(self) -> int:
+    def index(self) -> int:
         """Index of the object in its collection"""
         return self._obj.Index
 
     @property
-    def Range(self) -> str:
+    def range(self) -> str:
         """Range string representation"""
         return self._obj.Range
 
     @property
-    def TypeName(self) -> str:
+    def type_name(self) -> str:
         """Type name of the object"""
         return self._obj.TypeName
 
     @property
-    def Theme(self):
+    def theme(self):
         """Theme of the object"""
         return self._obj.Theme
 
-    @Theme.setter
-    def Theme(self, value) -> None:
+    @theme.setter
+    def theme(self, value) -> None:
         """Set theme"""
         self._obj.Theme = value
 

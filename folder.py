@@ -38,17 +38,17 @@ class Folder:
         self._core = core
 
     @property
-    def Path(self) -> str:
+    def path(self) -> str:
         """Full path of the folder in the project"""
         return self._folder.Path
 
     @property
-    def Parent(self) -> Folder:
+    def parent(self) -> Folder:
         """Parent folder"""
         return Folder(self._folder.Parent)
 
     @property
-    def Folders(self):
+    def folders(self):
         """Collection of subfolders"""
         return self._folder.Folders
 

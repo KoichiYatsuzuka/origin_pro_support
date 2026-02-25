@@ -51,7 +51,7 @@ class Folder(OriginObjectWrapper[oext_types.Folder]):
         super().__init__(folder, parent, origin_instance)
 
     @property
-    def Name(self) -> str:
+    def name(self) -> str:
         """Folder name"""
         return self._obj.Name
 
@@ -104,12 +104,12 @@ class PageBase(OriginObjectWrapper[TPageBase]):
         super().__init__(page, parent, origin_instance)
 
     @property
-    def Type(self) -> int:
+    def type(self) -> int:
         """Page type identifier"""
         return self._obj.Type
 
     @property
-    def Parent(self) -> Folder:
+    def parent(self) -> Folder:
         """Parent folder of this page"""
         return Folder(self._obj.Parent, None, self.origin_instance)
 
@@ -158,7 +158,7 @@ class Page(PageBase[TPage]):
         super().__init__(page, parent, origin_instance)
 
     @property
-    def Layers(self):
+    def layers(self):
         """Collection of layers in this page"""
         return self._obj.Layers
 
@@ -365,27 +365,27 @@ class GraphPage(Page[oext_types.GraphPage]):
         super().__init__(page, parent, origin_instance)
 
     @property
-    def BaseColor(self) -> int:
+    def base_color(self) -> int:
         """Base color of the graph page"""
         return self._obj.BaseColor
 
     @property
-    def GradColor(self) -> int:
+    def grad_color(self) -> int:
         """Gradient color of the graph page"""
         return self._obj.GradColor
 
     @property
-    def Width(self) -> float:
+    def width(self) -> float:
         """Width of the graph page"""
         return self._obj.Width
 
     @property
-    def Height(self) -> float:
+    def height(self) -> float:
         """Height of the graph page"""
         return self._obj.Height
 
     @property
-    def Units(self) -> int:
+    def units(self) -> int:
         """Units for dimensions"""
         return self._obj.Units
 
@@ -572,7 +572,7 @@ class NotePage(PageBase[oext_types.NotePage]):
         super().__init__(page)
 
     @property
-    def Text(self) -> str:
+    def text(self) -> str:
         """Text content of the notes"""
         return self._obj.Text
 

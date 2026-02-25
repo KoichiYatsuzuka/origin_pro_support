@@ -87,7 +87,7 @@ class OriginInstance:
     """
     __core: APP
     @property
-    def get_API(self) -> APP:
+    def api(self) -> APP:
         return self.__core
 
     path: str

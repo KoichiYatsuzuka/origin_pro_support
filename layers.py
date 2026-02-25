@@ -220,12 +220,12 @@ class Datasheet(Layer[TDatasheet]):
         super().__init__(datasheet, parent, origin_instance)
 
     @property
-    def Cols(self) -> int:
+    def cols(self) -> int:
         """Number of columns"""
         return self._obj.Cols
 
     @property
-    def Rows(self) -> int:
+    def rows(self) -> int:
         """Number of rows"""
         return self._obj.Rows
 
@@ -363,17 +363,6 @@ class Column(OriginObjectWrapper[oext_types.Column]):
         """Set short name"""
         self._obj.Name = value
 
-    # Backward compatibility alias
-    @property
-    def Name(self) -> str:
-        """Short name of the column (backward compatibility)"""
-        return self.name
-
-    @Name.setter
-    def Name(self, value: str) -> None:
-        """Set short name (backward compatibility)"""
-        self.name = value
-
     @property
     def long_name(self) -> str:
         """Long name of the column"""
@@ -384,31 +373,14 @@ class Column(OriginObjectWrapper[oext_types.Column]):
         """Set long name"""
         self._obj.LongName = value
 
-    # Backward compatibility alias
-    @property
-    def LongName(self) -> str:
-        """Long name of the column (backward compatibility)"""
-        return self.long_name
-
-    @LongName.setter
-    def LongName(self, value: str) -> None:
-        """Set long name (backward compatibility)"""
-        self.long_name = value
-
     @property
     def type(self) -> int:
         """Column type"""
         return self._obj.Type
 
-    # Backward compatibility alias
-    @property
-    def Type(self) -> int:
-        """Column type (backward compatibility)"""
-        return self.type
-
-    @Type.setter
-    def Type(self, value: int) -> None:
-        """Set column type (backward compatibility)"""
+    @type.setter
+    def type(self, value: int) -> None:
+        """Set column type"""
         self._obj.Type = value
 
     @property
@@ -421,17 +393,6 @@ class Column(OriginObjectWrapper[oext_types.Column]):
         """Set column units"""
         self._obj.Units = value
 
-    # Backward compatibility alias
-    @property
-    def Units(self) -> str:
-        """Column units (backward compatibility)"""
-        return self.units
-
-    @Units.setter
-    def Units(self, value: str) -> None:
-        """Set column units (backward compatibility)"""
-        self.units = value
-
     @property
     def comments(self) -> str:
         """Column comments"""
@@ -442,27 +403,10 @@ class Column(OriginObjectWrapper[oext_types.Column]):
         """Set column comments"""
         self._obj.Comments = value
 
-    # Backward compatibility alias
-    @property
-    def Comments(self) -> str:
-        """Column comments (backward compatibility)"""
-        return self.comments
-
-    @Comments.setter
-    def Comments(self, value: str) -> None:
-        """Set column comments (backward compatibility)"""
-        self.comments = value
-
     @property
     def parent(self) -> Worksheet:
         """Parent worksheet"""
         return Worksheet(self._obj.Parent, self._parent, self.origin_instance)
-
-    # Backward compatibility alias
-    @property
-    def Parent(self) -> Worksheet:
-        """Parent worksheet (backward compatibility)"""
-        return self.parent
 
     def get_parent(self) -> Worksheet:
         """
@@ -572,7 +516,7 @@ class Worksheet(Datasheet[oext_types.Worksheet]):
             self.set_rows(0)
 
     @property
-    def Columns(self):
+    def columns(self):
         """Collection of columns in this worksheet"""
         # Return a wrapper that provides access to wrapped Column objects
         return ColumnCollection(self._obj.Columns, self)
@@ -1283,12 +1227,12 @@ class DataPlot:
         return None
 
     @property
-    def Name(self) -> str:
+    def name(self) -> str:
         """Short name of the data plot"""
         return self._plot.Name
 
     @property
-    def Parent(self) -> GraphLayer:
+    def parent(self) -> GraphLayer:
         """Parent graph layer"""
         return GraphLayer(self._plot.Parent)
 
@@ -1724,12 +1668,12 @@ class GraphLayer(Layer[oext_types.GraphLayer]):
         super().__init__(layer, parent, origin_instance)
 
     @property
-    def DataPlots(self):
+    def data_plots(self):
         """Collection of data plots in this layer"""
         return self._obj.DataPlots
 
     @property
-    def GraphObjects(self):
+    def graph_objects(self):
         """Collection of graph objects in this layer"""
         return self._obj.GraphObjects
 
@@ -2090,7 +2034,7 @@ class Matrixsheet(Datasheet[oext_types.Matrixsheet]):
         super().__init__(matrixsheet)
 
     @property
-    def MatrixObjects(self):
+    def matrix_objects(self):
         """Collection of matrix objects in this sheet"""
         return self._obj.MatrixObjects
 
