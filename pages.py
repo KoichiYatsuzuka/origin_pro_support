@@ -2,7 +2,6 @@
 Page classes for OriginExt wrappers.
 
 This module contains wrapper classes for Origin pages including:
-- Folder
 - PageBase (base class)
 - Page
 - WorksheetPage
@@ -26,53 +25,6 @@ from .layer import Layer, Worksheet, GraphLayer, Matrixsheet, DataPlot, XYPlotTy
 
 if TYPE_CHECKING:
     from . import OriginInstance
-
-
-# ================== Folder Class ==================
-
-class Folder(OriginObjectWrapper[oext_types.Folder]):
-    """
-    Folder in Origin project.
-    Wrapper class that wraps OriginExt.OriginExt.Folder.
-
-    Corresponds to: originpro.Folder, OriginExt.OriginExt.Folder
-    """
-
-    def __init__(self, folder: oext_types.Folder, parent: Optional['OriginObjectWrapper'] = None, 
-                 origin_instance: Optional['OriginInstance'] = None):
-        """
-        Initialize Folder wrapper with hierarchical references.
-
-        Args:
-            folder: Original OriginExt.Folder instance to wrap
-            parent: Parent wrapper object (for hierarchical navigation)
-            origin_instance: Root OriginInstance reference (for LabTalk access)
-        """
-        super().__init__(folder, parent, origin_instance)
-
-    @property
-    def name(self) -> str:
-        """Folder name"""
-        return self._obj.Name
-
-    def get_pages(self) -> list[PageBase]:
-        """
-        Get all pages in this folder.
-
-        Returns:
-            list[PageBase]: List of pages in the folder
-        """
-        pages = []
-        for page in self._obj.Pages:
-            if page.Type == 1:  # Worksheet
-                pages.append(WorkbookPage(page, self, self.origin_instance))
-            elif page.Type == 2:  # Graph
-                pages.append(GraphPage(page, self, self.origin_instance))
-            elif page.Type == 3:  # Matrix
-                pages.append(MatrixPage(page, self, self.origin_instance))
-            elif page.Type == 4:  # Notes
-                pages.append(NotePage(page, self, self.origin_instance))
-        return pages
 
 
 # ================== Type Variables ==================
@@ -108,11 +60,6 @@ class PageBase(OriginObjectWrapper[TPageBase]):
         """Page type identifier"""
         return self._obj.Type
 
-    @property
-    def parent(self) -> Folder:
-        """Parent folder of this page"""
-        return Folder(self._obj.Parent, None, self.origin_instance)
-
     def get_type(self) -> int:
         """
         Get the page type.
@@ -123,17 +70,6 @@ class PageBase(OriginObjectWrapper[TPageBase]):
             int: Page type identifier
         """
         return self._obj.GetType()
-
-    def get_parent(self) -> Folder:
-        """
-        Get the parent folder.
-
-        Corresponds to: OriginExt.OriginExt.PageBase.GetParent()
-
-        Returns:
-            Folder: Parent folder
-        """
-        return Folder(self._obj.GetParent())
 
 
 class Page(PageBase[TPage]):

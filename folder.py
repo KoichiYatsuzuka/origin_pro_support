@@ -10,9 +10,9 @@ import OriginExt.OriginExt as oext_types
 from typing import Iterator, Optional, TYPE_CHECKING
 
 from .base import OriginObjectWrapper, OriginNameConflictError, OriginPageGenerationError
-from .pages import PageBase, WorkbookPage, GraphPage, MatrixPage, NotePage
 
 if TYPE_CHECKING:
+    from .pages import PageBase, WorkbookPage, GraphPage, MatrixPage, NotePage
     from .layer import XYPlotType
 
 # ================== Folder Class ==================
@@ -263,7 +263,7 @@ class Folder:
     #     # If not found, raise an error instead of returning None
     #     raise RuntimeError(f"Failed to create workbook '{name}'. LabTalk command executed but workbook not found.")
 
-    def new_workbook(self, name: str, template: str = '') -> Optional[WorkbookPage]:
+    def new_workbook(self, name: str, template: str = '') -> Optional['WorkbookPage']:
         """
         Create a new workbook page in the root folder.
         Uses direct LabTalk execution for now.
