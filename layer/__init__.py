@@ -48,17 +48,15 @@ class Layer(OriginObjectWrapper[TLayer]):
     Corresponds to: originpro.DSheet / originpro.GLayer, OriginExt.OriginExt.Layer
     """
 
-    def __init__(self, layer: TLayer, parent: Optional['OriginObjectWrapper'] = None, 
-                 origin_instance: Optional['OriginInstance'] = None):
+    def __init__(self, layer: TLayer, api_core: Optional['APP'] = None):
         """
         Initialize Layer wrapper with hierarchical references.
 
         Args:
             layer: Original OriginExt layer instance to wrap
-            parent: Parent wrapper object (for hierarchical navigation)
-            origin_instance: Root OriginInstance reference (for LabTalk access)
+            api_core: APP instance reference for LabTalk access
         """
-        super().__init__(layer, parent, origin_instance)
+        super().__init__(layer, api_core)
 
     def get_data_object_bases(self):
         """

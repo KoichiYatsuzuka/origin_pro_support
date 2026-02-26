@@ -18,7 +18,7 @@ from collections.abc import Iterator
 from ..base import OriginObjectWrapper
 
 if TYPE_CHECKING:
-    from ..origin_instance import OriginInstance
+    from ..base import APP
 
 
 # ================== Type Variables ==================
@@ -36,12 +36,11 @@ class Datasheet(OriginObjectWrapper[TDatasheet]):
     Wrapper class that wraps OriginExt.OriginExt.Datasheet.
     """
 
-    def __init__(self, datasheet: TDatasheet, parent: Optional['OriginObjectWrapper'] = None, 
-                 origin_instance: Optional['OriginInstance'] = None):
+    def __init__(self, datasheet: TDatasheet, api_core: APP):
         """
         Initialize Datasheet wrapper with hierarchical references.
         """
-        super().__init__(datasheet, parent, origin_instance)
+        super().__init__(datasheet, api_core)
 
     @property
     def cols(self) -> int:
@@ -77,13 +76,13 @@ class ColumnCollection:
     Wrapper for Origin column collection that returns wrapped Column objects.
     """
     
-    def __init__(self, columns_collection, parent: Optional['OriginObjectWrapper'] = None):
+    def __init__(self, columns_collection, api_core: Optional['APP'] = None):
         self._columns = columns_collection
-        self._parent = parent
+        self.__API_core = api_core
     
     def __getitem__(self, index: int) -> 'Column':
         """Get column by index"""
-        return Column(self._columns[index], self._parent, self._parent.origin_instance if self._parent else None)
+        return Column(self._columns[index], None, self.__API_core)
     
     def __len__(self) -> int:
         """Get number of columns"""
@@ -92,7 +91,7 @@ class ColumnCollection:
     def __iter__(self):
         """Iterate over columns, yielding wrapped Column objects"""
         for col in self._columns:
-            yield Column(col, self._parent, self._parent.origin_instance if self._parent else None)
+            yield Column(col, None, self.__API_core)
 
 
 # ================== Column Class ==================
@@ -105,17 +104,15 @@ class Column(OriginObjectWrapper[TColumn]):
     Corresponds to: originpro.Column, OriginExt.OriginExt.Column
     """
 
-    def __init__(self, column: TColumn, parent: Optional['OriginObjectWrapper'] = None, 
-                 origin_instance: Optional['OriginInstance'] = None):
+    def __init__(self, column: TColumn, api_core: Optional['APP'] = None):
         """
         Initialize Column wrapper with hierarchical references.
 
         Args:
             column: Original OriginExt.Column instance to wrap
-            parent: Parent wrapper object (for hierarchical navigation)
-            origin_instance: Root OriginInstance reference (for LabTalk access)
+            api_core: APP instance reference for LabTalk access
         """
-        super().__init__(column, parent, origin_instance)
+        super().__init__(column, api_core)
 
     @property
     def name(self) -> str:
@@ -170,7 +167,7 @@ class Column(OriginObjectWrapper[TColumn]):
     @property
     def parent(self) -> 'Worksheet':
         """Parent worksheet"""
-        return Worksheet(self._obj.Parent, self._parent, self.origin_instance)
+        return Worksheet(self._obj.Parent, self, self.api_core)
 
     def get_parent(self) -> 'Worksheet':
         """
@@ -181,7 +178,7 @@ class Column(OriginObjectWrapper[TColumn]):
         Returns:
             Worksheet: Parent worksheet
         """
-        return Worksheet(self._obj.GetParent(), self._parent, self.origin_instance)
+        return Worksheet(self._obj.GetParent(), self, self.api_core)
 
     def get_data(self, format: int, start: int = 0, end: int = -1, lowbound: int = 1):
         """
@@ -200,13 +197,20 @@ class Column(OriginObjectWrapper[TColumn]):
         """
         return self._obj.GetData(format, start, end, lowbound)
 
-    def set_data(self, *args):
+    def set_data(self, data, offset: int = 0):
         """
         Set column data.
 
         Corresponds to: OriginExt.OriginExt.Column.SetData()
+
+        Args:
+            data: Data array to set
+            offset: Row offset (default: 0)
+
+        Returns:
+            bool: True if successful
         """
-        return self._obj.SetData(*args)
+        return self._obj.SetData(data, offset)
 
     def is_valid(self) -> bool:
         """
@@ -230,30 +234,15 @@ class Worksheet(Datasheet[TWorksheet]):
     Corresponds to: originpro.WSheet, OriginExt.OriginExt.Worksheet
     """
 
-    @overload
-    def __init__(self, worksheet: TWorksheet, origin_instance: 'OriginInstance', 
-                 parent: 'OriginObjectWrapper') -> None: ...
-    
-    @overload
-    def __init__(self, worksheet: TWorksheet, origin_instance: 'OriginInstance', 
-                 parent: 'OriginObjectWrapper',
-                 data: pd.DataFrame) -> None: ...
-    
-    @overload
-    def __init__(self, worksheet: TWorksheet, origin_instance: 'OriginInstance', 
-                 parent: 'OriginObjectWrapper', 
-                 data: np.ndarray) -> None: ...
-    
-    @overload
-    def __init__(self, worksheet: TWorksheet, origin_instance: 'OriginInstance', 
-                 parent: 'OriginObjectWrapper', data: Optional[pd.DataFrame | np.ndarray | List[List[Any]]] = None):
+    def __init__(self, worksheet: TWorksheet, api_core: APP, 
+                data: Optional[pd.DataFrame | np.ndarray | List[List[Any]]] = None):
         """
         Initialize Worksheet wrapper with hierarchical references.
         Can optionally load data during initialization.
 
         Args:
             worksheet: Original OriginExt.Worksheet instance to wrap
-            origin_instance: Root OriginInstance reference (for LabTalk access)
+            api_core: APP instance reference for LabTalk access
             parent: Parent wrapper object (for hierarchical navigation)
             data: Optional data to load (pd.DataFrame, 2D np.ndarray, or 2D list)
         
@@ -261,11 +250,11 @@ class Worksheet(Datasheet[TWorksheet]):
             TypeError: If data is not None and not one of the supported types
             ValueError: If np.ndarray is not 2D or list is not 2D
         """
-        super().__init__(worksheet, parent, origin_instance)
+        super().__init__(worksheet, api_core)
         
         # Automatically set header rows to show: Long Name, Units, Sparklines, F(x), Comments
         self.header_rows('LUSCO')
-        
+         
         # Ensure sparklines are properly activated and generated
         self._ensure_sparklines()
         
@@ -286,11 +275,11 @@ class Worksheet(Datasheet[TWorksheet]):
     def __iter__(self) -> Iterator[Column]:
         """Iterate over columns"""
         for col in self._obj:
-            yield Column(col, self, self.origin_instance)
+            yield Column(col, self.api_core)
 
     def __getitem__(self, index: int) -> Column:
         """Get column by index"""
-        return Column(self._obj[index], self, self.origin_instance)
+        return Column(self._obj[index], self.api_core)
 
     def get_cell(self, row: int, col: int):
         """
@@ -307,6 +296,17 @@ class Worksheet(Datasheet[TWorksheet]):
         """
         return self._obj.GetCell(row, col)
 
+    def set_cell(self, row: int, col: int, value):
+        """
+        Set cell value at specified row and column.
+
+        Args:
+            row: Row index
+            col: Column index
+            value: Value to set
+        """
+        self._obj.SetCell(row, col, value)
+
     def get_columns(self) -> list[Column]:
         """
         Get list of columns in this worksheet.
@@ -316,7 +316,7 @@ class Worksheet(Datasheet[TWorksheet]):
         Returns:
             list[Column]: List of columns
         """
-        return [Column(c, self, self.origin_instance) for c in self._obj.GetColumns()]
+        return [Column(c, self.api_core) for c in self._obj.GetColumns()]
 
     def header_rows(self, spec: str = 'LUSCO') -> None:
         """
@@ -418,3 +418,280 @@ class Worksheet(Datasheet[TWorksheet]):
             print(f"[ERROR] Failed to generate sparklines: {e}")
         
         return
+    @overload
+    def add_column_from_data(self, data: List, lname: Optional[str] = None, 
+                           units: Optional[str] = None, comments: Optional[str] = None, 
+                           axis: Optional[str] = None) -> 'Column': ...
+    
+    @overload
+    def add_column_from_data(self, data: pd.Series, lname: Optional[str] = None, 
+                           units: Optional[str] = None, comments: Optional[str] = None, 
+                           axis: Optional[str] = None) -> 'Column': ...
+    
+    @overload
+    def add_column_from_data(self, data: np.ndarray, lname: Optional[str] = None, 
+                           units: Optional[str] = None, comments: Optional[str] = None, 
+                           axis: Optional[str] = None) -> Union['Column', List['Column']]: ...
+    
+    @overload
+    def add_column_from_data(self, data: pd.DataFrame, lname: Optional[str] = None, 
+                           units: Optional[str] = None, comments: Optional[str] = None, 
+                           axis: Optional[str] = None) -> Union['Column', List['Column']]: ...
+
+    def add_column_from_data(self, data, lname: Optional[str] = None, 
+                           units: Optional[str] = None, comments: Optional[str] = None, 
+                           axis: Optional[str] = None):
+        """
+        Add a new column to the worksheet from various data types.
+        Overloaded based on data type and dimension.
+        
+        Args:
+            data: Input data (list, np.ndarray, pd.Series, or pd.DataFrame)
+            lname: Optional long name for the column
+            units: Optional units for the column
+            comments: Optional comments for the column
+            axis: Optional axis designation ('X', 'Y', 'Z', 'E', etc.)
+            
+        Returns:
+            Column: The newly created column (or list of columns for 2D data)
+            
+        Raises:
+            ValueError: If data type or dimension is not supported
+        """
+        
+        # Early type validation
+        if not isinstance(data, (list, pd.DataFrame, pd.Series, np.ndarray)):
+            raise TypeError(f"Unsupported data type: {type(data)}. Supported types: list, numpy.ndarray, pandas.Series, pandas.DataFrame")
+        
+        # Handle 1D data with step-by-step type checking
+        # Check for pd.Series first
+        if isinstance(data, pd.Series):
+            data_list = data.tolist()
+            return self._add_column_from_1d_data(data_list, lname, units, comments, axis)
+        
+        # Check for np.ndarray
+        elif isinstance(data, np.ndarray):
+            if data.ndim == 1:
+                data_list = data.tolist()
+                return self._add_column_from_1d_data(data_list, lname, units, comments, axis)
+            else:
+                # 2D+ array will be handled in 2D section
+                pass
+        
+        # Check for list
+        elif isinstance(data, list):
+            # Check if it's 1D list (not nested) and contains valid types
+            if not data or not isinstance(data[0], list):
+                # Validate element types
+                valid_types = (int, float, str)
+                if any(not isinstance(item, valid_types) for item in data if item is not None):
+                    raise ValueError("List elements must be int, float, or str")
+                return self._add_column_from_1d_data(data, lname, units, comments, axis)
+            else:
+                # 2D list will be handled in 2D section
+                pass
+            
+        # Handle 2D data with function calls
+        if isinstance(data, pd.DataFrame):
+            return self._add_column_from_dataframe(data, lname, units, comments, axis)
+        
+        elif isinstance(data, np.ndarray) and data.ndim == 2:
+            return self._add_column_from_2d_array(data, lname, units, comments, axis)
+        
+        elif isinstance(data, list) and data and isinstance(data[0], list):
+            # Validate that it's truly 2D (not 3D+)
+            if data[0] and isinstance(data[0][0], list):
+                raise ValueError("3D or higher nested lists are not supported. Use 2D list, numpy.ndarray, pandas.Series, or pandas.DataFrame")
+            return self._add_column_from_2d_list(data, lname, units, comments, axis)
+        
+        else:
+            raise ValueError(f"Unsupported data format: {type(data)}. Expected 1D/2D list, numpy.ndarray, pandas.Series, or pandas.DataFrame")
+    def _add_column_from_1d_data(self, data_list: list, lname: Optional[str] = None, 
+                                units: Optional[str] = None, comments: Optional[str] = None, 
+                                axis: Optional[str] = None) -> 'Column':
+        """
+        Add a single column from 1D list data.
+        
+        Args:
+            data_list: 1D list of data
+            lname: Optional long name for the column
+            units: Optional units for the column
+            comments: Optional comments for the column
+            axis: Optional axis designation ('X', 'Y', 'Z', 'E', etc.)
+            
+        Returns:
+            Column: The newly created column
+        """
+        # Add one column and set the data
+        current_cols = self.get_cols()
+        self.set_cols(current_cols + 1)
+        new_col = self.Columns(current_cols)
+        
+        # Set column properties
+        if lname is not None:
+            new_col.LongName = lname
+        if units is not None:
+            new_col.Units = units
+        if comments is not None:
+            new_col.Comments = comments
+        if axis is not None:
+            # Set axis designation using LabTalk command
+            axis_map = {'X': 1, 'Y': 2, 'Z': 3, 'E': 4}  # Common axis types
+            if isinstance(axis, str) and axis.upper() in axis_map:
+                new_col.Type = axis_map[axis.upper()]
+            elif isinstance(axis, int):
+                new_col.Type = axis
+        
+        # Set data
+        new_col.set_data(data_list)
+        return new_col
+
+    def _add_column_from_dataframe(self, df: pd.DataFrame, lname: Optional[str] = None, 
+                                  units: Optional[str] = None, comments: Optional[str] = None, 
+                                  axis: Optional[str] = None) -> Union['Column', List['Column']]:
+        """
+        Add multiple columns from pandas DataFrame.
+        
+        Args:
+            df: pandas DataFrame to load
+            lname: Optional base name for columns
+            units: Optional units for the columns
+            comments: Optional comments for the columns
+            axis: Optional axis designation for the columns
+            
+        Returns:
+            Column or List[Column]: The newly created column(s)
+        """
+        num_cols = len(df.columns)
+        current_cols = self.get_cols()
+        self.set_cols(current_cols + num_cols)
+        
+        new_columns = []
+        for i, col_name in enumerate(df.columns):
+            new_col = self.Columns(current_cols + i)
+            
+            # Set column properties
+            if lname is None:
+                new_col.LongName = str(col_name)
+            else:
+                new_col.LongName = f"{lname}_{col_name}"
+            
+            if units is not None:
+                new_col.Units = units
+            if comments is not None:
+                new_col.Comments = comments
+            if axis is not None:
+                axis_map = {'X': 1, 'Y': 2, 'Z': 3, 'E': 4}
+                if isinstance(axis, str) and axis.upper() in axis_map:
+                    new_col.Type = axis_map[axis.upper()]
+                elif isinstance(axis, int):
+                    new_col.Type = axis
+            
+            # Set data
+            col_data = df[col_name].tolist()
+            new_col.set_data(col_data)
+            new_columns.append(new_col)
+        
+        return new_columns[0] if len(new_columns) == 1 else new_columns
+
+    def _add_column_from_2d_array(self, arr: np.ndarray, lname: Optional[str] = None, 
+                                 units: Optional[str] = None, comments: Optional[str] = None, 
+                                 axis: Optional[str] = None) -> Union['Column', List['Column']]:
+        """
+        Add multiple columns from 2D numpy array.
+        
+        Args:
+            arr: 2D numpy array to load
+            lname: Optional base name for columns
+            units: Optional units for the columns
+            comments: Optional comments for the columns
+            axis: Optional axis designation for the columns
+            
+        Returns:
+            Column or List[Column]: The newly created column(s)
+        """
+        num_cols = arr.shape[1]
+        current_cols = self.get_cols()
+        self.set_cols(current_cols + num_cols)
+        
+        new_columns = []
+        for i in range(num_cols):
+            new_col = self.Columns(current_cols + i)
+            
+            # Set column properties
+            if lname is not None:
+                if num_cols == 1:
+                    new_col.LongName = lname
+                else:
+                    new_col.LongName = f"{lname}_{i+1}"
+            else:
+                new_col.LongName = f"Column_{current_cols + i + 1}"
+            
+            if units is not None:
+                new_col.Units = units
+            if comments is not None:
+                new_col.Comments = comments
+            if axis is not None:
+                axis_map = {'X': 1, 'Y': 2, 'Z': 3, 'E': 4}
+                if isinstance(axis, str) and axis.upper() in axis_map:
+                    new_col.Type = axis_map[axis.upper()]
+                elif isinstance(axis, int):
+                    new_col.Type = axis
+            
+            # Set data
+            col_data = arr[:, i].tolist()
+            new_col.set_data(col_data)
+            new_columns.append(new_col)
+        
+        return new_columns[0] if len(new_columns) == 1 else new_columns
+
+    def _add_column_from_2d_list(self, data: List[List[Any]], lname: Optional[str] = None, 
+                                units: Optional[str] = None, comments: Optional[str] = None, 
+                                axis: Optional[str] = None) -> Union['Column', List['Column']]:
+        """
+        Add multiple columns from 2D list.
+        
+        Args:
+            data: 2D list to load
+            lname: Optional base name for columns
+            units: Optional units for the columns
+            comments: Optional comments for the columns
+            axis: Optional axis designation for the columns
+            
+        Returns:
+            Column or List[Column]: The newly created column(s)
+        """
+        num_cols = len(data[0]) if data else 0
+        current_cols = self.get_cols()
+        self.set_cols(current_cols + num_cols)
+        
+        new_columns = []
+        for i in range(num_cols):
+            new_col = self.Columns(current_cols + i)
+            
+            # Set column properties
+            if lname is not None:
+                if num_cols == 1:
+                    new_col.LongName = lname
+                else:
+                    new_col.LongName = f"{lname}_{i+1}"
+            else:
+                new_col.LongName = f"Column_{current_cols + i + 1}"
+            
+            if units is not None:
+                new_col.Units = units
+            if comments is not None:
+                new_col.Comments = comments
+            if axis is not None:
+                axis_map = {'X': 1, 'Y': 2, 'Z': 3, 'E': 4}
+                if isinstance(axis, str) and axis.upper() in axis_map:
+                    new_col.Type = axis_map[axis.upper()]
+                elif isinstance(axis, int):
+                    new_col.Type = axis
+            
+            # Set data from 2D list
+            col_data = [row[i] for row in data]
+            new_col.set_data(col_data)
+            new_columns.append(new_col)
+        
+        return new_columns[0] if len(new_columns) == 1 else new_columns

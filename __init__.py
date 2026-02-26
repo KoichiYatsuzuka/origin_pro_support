@@ -42,7 +42,6 @@ from .pages import (
     GraphPage,
     MatrixPage,
     NotePage,
-    FigurePage,
 )
 
 from .layer import (
@@ -61,6 +60,10 @@ from .layer import (
 
 from .folder import (
     Folder,
+)
+
+from .origin_instance import (
+    OriginInstance,
 )
 
 # ================== Application API ==================
@@ -789,7 +792,6 @@ __all__ = [
     'GraphPage',
     'MatrixPage',
     'NotePage',
-    'FigurePage',
     # Layer classes
     'Layer',
     'Datasheet',

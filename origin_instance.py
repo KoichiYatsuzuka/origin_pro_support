@@ -6,14 +6,15 @@ functionality that was previously in __init__.py to resolve circular dependencie
 """
 from __future__ import annotations
 
-import OriginExt as oext
 import sys
 import os
 from enum import Enum
 from typing import Optional
 
 from .folder import Folder
+from .layer.enums import XYPlotType
 from .base import (
+    APP,
     OriginNotFoundError,
     OriginInstanceGenerationError,
     OriginTooManyInstancesError,
@@ -26,40 +27,6 @@ if "ORIGIN_INSTANCE_LIMIT" not in globals():
     ORIGIN_INSTANCE_LIMIT = 5
 else:
     raise OriginInstanceGenerationError("ORIGIN_INSTANCE_LIMIT is already defined.\nDo not define it before importing this library.")
-
-
-class APP:
-    'OriginExt.Application() wrapper'
-    def __init__(self):
-        self._app = None
-        self._first = True
-    def __getattr__(self, name):
-        try:
-            return getattr(oext, name)
-        except AttributeError:
-            pass
-        if self._app is None:
-            self._app = oext.Application()
-            self._app.LT_execute('sec -poc') # wait until OC ready
-        return getattr(self._app, name)
-    def __bool__(self):
-        return self._app is not None
-    def Exit(self, releaseonly=False):
-        'Exit if Application exists'
-        if self._app is not None:
-            self._app.Exit(releaseonly)
-            self._app = None
-    def Attach(self):
-        'Attach to exising Origin instance'
-        releaseonly = True
-        if self._first:
-            releaseonly = False
-            self._first = False
-        self.Exit(releaseonly)
-        self._app = oext.ApplicationSI()
-    def Detach(self):
-        'Detach from Origin instance'
-        self.Exit(True)
 
 
 class OriginInstance:
@@ -90,10 +57,9 @@ class OriginInstance:
     def api(self) -> APP:
         return self.__core
 
-    path: str
     @property
     def path(self) -> str:
-        return self.path
+        return self._path
 
     # 疑似static変数
     __instance_count: int = 0
@@ -118,9 +84,9 @@ class OriginInstance:
         """
 
         # //があるとフォルダだと認識されないため、置換
-        self.path = path_to_origin_file.replace("//", "\\")
+        self._path = path_to_origin_file.replace("//", "\\")
 
-        dir = os.path.dirname(self.path)
+        dir = os.path.dirname(self._path)
         if not os.path.exists(dir):
             raise OriginNotFoundError(
                 "The directory was not found:\n\
@@ -185,22 +151,20 @@ class OriginInstance:
             '''Ensures Origin gets shut down if an uncaught exception'''
             self.close()
             sys.__excepthook__(exctype, value, traceback)
-        if oext:
-            sys.excepthook = origin_shutdown_exception_hook
 
     def __del__(self):
-        if self.__core:
+        if hasattr(self, '_OriginInstance__core') and self.__core:
             self.close()
 
     def close(self, save_flag: bool = True) -> None:
         '''Originのインスタンスを終了する'''
         if save_flag:
-            self.__core.Save(self.path)
+            self.__core.Save(self._path)
         self.__core.Exit()
 
         OriginInstance.__instance_count = OriginInstance.__instance_count - 1
 
-        OriginInstance.__instance_path_list.remove(self.path)
+        OriginInstance.__instance_path_list.remove(self._path)
 
     def get_root_dir(self) -> Folder:
         '''Originのルートディレクトリを取得する'''
@@ -470,7 +434,7 @@ class OriginInstance:
         """
         return self.get_root_dir().find_graph(name)
 
-    def new_graph(self, name: str, template = None) -> Optional:
+    def new_graph(self, name: str, template: XYPlotType) -> Optional:
         """
         Create a new graph page in the root folder.
         Delegates to root folder.
@@ -484,6 +448,17 @@ class OriginInstance:
         Raises:
             OriginNameConflictError: If a page with the same name already exists
         """
+        # Convert enum to string if needed
+        print(f"[DEBUG] Input template: {template}, type: {type(template)}")
+        if template is not None and hasattr(template, 'value'):
+            template = template.value.template_name
+            print(f"[DEBUG] Using template name: {template}")
+        elif template is None:
+            template = XYPlotType.LINE.value.template_name
+            print(f"[DEBUG] Using default template: {template}")
+        else:
+            print(f"[DEBUG] Using template as-is: {template}")
+        
         return self.get_root_dir().create_graph(name, template)
 
     # ================== Matrix Operations ==================

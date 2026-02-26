@@ -21,7 +21,8 @@ from collections.abc import Iterator
 from .base import OriginObjectWrapper
 
 # Import required classes that are used outside TYPE_CHECKING
-from .layer import Layer, Worksheet, GraphLayer, Matrixsheet, DataPlot, XYPlotType, ColorMap, GroupMode
+from .layer import Layer, Worksheet, GraphLayer, Matrixsheet, DataPlot
+from .layer.enums import XYPlotType, ColorMap, GroupMode
 
 if TYPE_CHECKING:
     from . import OriginInstance
@@ -43,17 +44,15 @@ class PageBase(OriginObjectWrapper[TPageBase]):
     Corresponds to: originpro.PageBase, OriginExt.OriginExt.PageBase
     """
 
-    def __init__(self, page: TPageBase, parent: Optional['OriginObjectWrapper'] = None, 
-                 origin_instance: Optional['OriginInstance'] = None):
+    def __init__(self, page: TPageBase, api_core: Optional['APP'] = None):
         """
         Initialize PageBase wrapper with hierarchical references.
 
         Args:
             page: Original OriginExt.PageBase instance to wrap
-            parent: Parent wrapper object (for hierarchical navigation)
-            origin_instance: Root OriginInstance reference (for LabTalk access)
+            api_core: APP instance reference for LabTalk access
         """
-        super().__init__(page, parent, origin_instance)
+        super().__init__(page, api_core)
 
     @property
     def type(self) -> int:
@@ -81,17 +80,15 @@ class Page(PageBase[TPage]):
     Corresponds to: OriginExt.OriginExt.Page
     """
 
-    def __init__(self, page: TPage, parent: Optional['OriginObjectWrapper'] = None, 
-                 origin_instance: Optional['OriginInstance'] = None):
+    def __init__(self, page: TPage, api_core: Optional['APP'] = None):
         """
         Initialize Page wrapper with hierarchical references.
 
         Args:
             page: Original OriginExt.Page instance to wrap
-            parent: Parent wrapper object (for hierarchical navigation)
-            origin_instance: Root OriginInstance reference (for LabTalk access)
+            api_core: APP instance reference for LabTalk access
         """
-        super().__init__(page, parent, origin_instance)
+        super().__init__(page, api_core)
 
     @property
     def layers(self):
@@ -104,7 +101,7 @@ class Page(PageBase[TPage]):
 
     def __getitem__(self, index: int) -> Layer:
         """Get layer by index"""
-        return Layer(self._obj[index], self, self.origin_instance)
+        return Layer(self._obj[index], self, self.api_core)
 
     def __len__(self) -> int:
         """Get number of layers"""
@@ -119,7 +116,7 @@ class Page(PageBase[TPage]):
         Returns:
             list[Layer]: List of layers
         """
-        return [Layer(l, self, self.origin_instance) for l in self._obj.GetLayers()]
+        return [Layer(l, self, self.api_core) for l in self._obj.GetLayers()]
 
     def get_layer(self, index: int) -> Layer:
         """
@@ -133,7 +130,7 @@ class Page(PageBase[TPage]):
         Returns:
             Layer: The layer at the specified index
         """
-        return Layer(self._obj.GetLayer(index), self, self.origin_instance)
+        return Layer(self._obj.GetLayer(index), self, self.api_core)
 
     def preview(self, fname: str) -> bool:
         """
@@ -158,26 +155,24 @@ class WorkbookPage(Page[oext_types.WorksheetPage]):
     Corresponds to: originpro.WBook, OriginExt.OriginExt.WorksheetPage
     """
 
-    def __init__(self, page: oext_types.WorksheetPage, parent: Optional['OriginObjectWrapper'] = None, 
-                 origin_instance: Optional['OriginInstance'] = None):
+    def __init__(self, page: oext_types.WorksheetPage, api_core: Optional['APP'] = None):
         """
         Initialize WorkbookPage wrapper with hierarchical references.
 
         Args:
             page: Original OriginExt.WorksheetPage instance to wrap
-            parent: Parent wrapper object (for hierarchical navigation)
-            origin_instance: Root OriginInstance reference (for LabTalk access)
+            api_core: APP instance reference for LabTalk access
         """
-        super().__init__(page, parent, origin_instance)
+        super().__init__(page, api_core)
 
     def __iter__(self) -> Iterator[Worksheet]:
         """Iterate over worksheets"""
         for layer in self._obj:
-            yield Worksheet(layer, self, self.origin_instance)
+            yield Worksheet(layer, self, self.api_core)
 
     def __getitem__(self, index: int) -> Worksheet:
         """Get worksheet by index"""
-        return Worksheet(self._obj[index], self, self.origin_instance)
+        return Worksheet(self._obj[index], self, self.api_core)
 
     def get_layers(self) -> list[Worksheet]:
         """
@@ -188,7 +183,7 @@ class WorkbookPage(Page[oext_types.WorksheetPage]):
         Returns:
             list[Worksheet]: List of worksheets
         """
-        return [Worksheet(l, self, self.origin_instance) for l in self._obj.GetLayers()]
+        return [Worksheet(l, self, self.api_core) for l in self._obj.GetLayers()]
 
     def get_layer(self, index: int) -> Worksheet:
         """
@@ -202,7 +197,7 @@ class WorkbookPage(Page[oext_types.WorksheetPage]):
         Returns:
             Worksheet: The worksheet at the specified index
         """
-        return Worksheet(self._obj.GetLayer(index), self, self.origin_instance)
+        return Worksheet(self._obj.GetLayer(index), self, self.api_core)
 
     @overload
     def add_worksheet(self, name: str = '') -> 'Worksheet': ...
@@ -249,7 +244,7 @@ class WorkbookPage(Page[oext_types.WorksheetPage]):
         """
         # Create new worksheet
         new_layer = self._obj.AddLayer(name)
-        new_worksheet = Worksheet(new_layer, self, self.origin_instance)
+        new_worksheet = Worksheet(new_layer, self.api_core)
         
         # If data is provided, validate and add it to the worksheet
         if data is not None:
@@ -288,17 +283,15 @@ class GraphPage(Page[oext_types.GraphPage]):
     Corresponds to: originpro.GPage, OriginExt.OriginExt.GraphPage
     """
 
-    def __init__(self, page: oext_types.GraphPage, parent: Optional['OriginObjectWrapper'] = None, 
-                 origin_instance: Optional['OriginInstance'] = None):
+    def __init__(self, page: oext_types.GraphPage, api_core: Optional['APP'] = None):
         """
         Initialize GraphPage wrapper with hierarchical references.
 
         Args:
             page: Original OriginExt.GraphPage instance to wrap
-            parent: Parent wrapper object (for hierarchical navigation)
-            origin_instance: Root OriginInstance reference (for LabTalk access)
+            api_core: APP instance reference for LabTalk access
         """
-        super().__init__(page, parent, origin_instance)
+        super().__init__(page, api_core)
 
     @property
     def base_color(self) -> int:
@@ -327,12 +320,12 @@ class GraphPage(Page[oext_types.GraphPage]):
 
     def __iter__(self) -> Iterator[GraphLayer]:
         """Iterate over graph layers"""
-        for layer in self._obj:
-            yield GraphLayer(layer, self, self.origin_instance)
+        for i, layer in enumerate(self._obj):
+            yield GraphLayer(layer, self.api_core, i, self)
 
     def __getitem__(self, index: int) -> GraphLayer:
         """Get graph layer by index"""
-        return GraphLayer(self._obj[index], self, self.origin_instance)
+        return GraphLayer(self._obj[index], self.api_core, index, self)
 
     def get_layers(self) -> list[GraphLayer]:
         """
@@ -343,13 +336,11 @@ class GraphPage(Page[oext_types.GraphPage]):
         Returns:
             list[GraphLayer]: List of graph layers
         """
-        return [GraphLayer(l, self, self.origin_instance) for l in self._obj.GetLayers()]
+        return [GraphLayer(l, self.api_core, i, self) for i, l in enumerate(self._obj.GetLayers())]
 
     def get_layer(self, index: int) -> GraphLayer:
         """
-        Get graph layer by index.
-
-        Corresponds to: OriginExt.OriginExt.GraphPage.GetLayer()
+        Get graph layer by index using LabTalk command.
 
         Args:
             index: Layer index
@@ -357,7 +348,26 @@ class GraphPage(Page[oext_types.GraphPage]):
         Returns:
             GraphLayer: The graph layer at the specified index
         """
-        return GraphLayer(self._obj.GetLayer(index), self, self.origin_instance)
+        # Use LabTalk command to get the layer
+        if self.api_core:
+            # Get the layer using LabTalk with graph page name
+            cmd = f'layer -s {self.name} {index}'
+            self.api_core.LT_execute(cmd)
+            
+            # Get the layer from the Layers collection
+            try:
+                layer_obj = self._obj.Layers[index]
+                return GraphLayer(layer_obj, self.api_core, index, self)
+            except Exception as e:
+                print(f"[DEBUG] Error getting layer from Layers collection: {e}")
+                # Fallback: try to get the first layer
+                if index == 0 and len(self._obj.Layers) > 0:
+                    layer_obj = self._obj.Layers[0]
+                    return GraphLayer(layer_obj, self.api_core, 0, self)
+                else:
+                    raise IndexError(f"Layer index {index} out of range")
+        else:
+            raise RuntimeError("No API core available for LabTalk execution")
 
     def add_graph_layer(self, name: str = '') -> GraphLayer:
         """
@@ -369,7 +379,7 @@ class GraphPage(Page[oext_types.GraphPage]):
         Returns:
             GraphLayer: The newly created layer
         """
-        return GraphLayer(self._obj.AddLayer(name), self, self.origin_instance)
+        return GraphLayer(self._obj.AddLayer(name), self.api_core, 0, self)
 
     def get_base_color(self) -> int:
         """
@@ -436,6 +446,96 @@ class GraphPage(Page[oext_types.GraphPage]):
             height: Page height
         """
         self._obj.SetHeight(height)
+
+    def get_layer(self, index: int = 0) -> GraphLayer:
+        """
+        Get a specific layer by index using LabTalk command.
+
+        Args:
+            index: Layer index (0-based)
+
+        Returns:
+            GraphLayer: The graph layer at the specified index
+        """
+        # Use LabTalk command to get the layer
+        if self.api_core:
+            # Get the layer using LabTalk with graph page name
+            cmd = f'layer -s {self.name} {index}'
+            self.api_core.LT_execute(cmd)
+            
+            # Get the layer from the active layer
+            import OriginExt.OriginExt as oext_types
+            import OriginExt._OriginExt as oext
+            
+            # Get the active layer after executing the LabTalk command
+            try:
+                # Get the layer from the graph page
+                layer_obj = self._obj.GetLayer(index)
+                return GraphLayer(layer_obj, self.api_core, index)
+            except AttributeError:
+                # Fallback: try to get the layer by name using LabTalk
+                layer_name = f"{self.name}{index+1}"  # Layer names are typically "Graph1", "Graph2", etc.
+                cmd_get = f'layer -a {layer_name}'
+                self.api_core.LT_execute(cmd_get)
+                
+                # Get the active layer
+                active_layer = oext_types.GraphLayer()
+                return GraphLayer(active_layer, self.api_core, index)
+        else:
+            raise RuntimeError("No API core available for LabTalk execution")
+
+    def plot_xy_data(self, worksheet, x_col: int, y_col: int = -1,
+                    plot_type = None, layer_index: int = 0,
+                    color_map = None, shape_list: list[int] = None,
+                    group_mode = None) -> DataPlot:
+        """
+        Plot XY data from worksheet with hierarchical structure.
+
+        Args:
+            worksheet: Worksheet containing data
+            x_col: X column index (0-based)
+            y_col: Y column index (0-based) or -1 for all columns after x_col
+            plot_type: XYPlotType enum (defaults to LINE_SYMBOL)
+            layer_index: Layer index to plot on (0 for first layer)
+            color_map: Optional ColorMap enum
+            shape_list: Optional list of shape indices
+            group_mode: GroupMode enum for plot grouping
+
+        Returns:
+            DataPlot: The created data plot
+        """
+        
+        if plot_type is None:
+            plot_type = XYPlotType.LINE_SYMBOL
+        if group_mode is None:
+            group_mode = GroupMode.DEPENDENT
+
+        # Get or create the target layer
+        if layer_index >= len(self):
+            # Add new layers if needed
+            while layer_index >= len(self):
+                self.add_graph_layer()
+        
+        layer = self.get_layer(layer_index)
+
+        # Add the plot
+        plot = layer.add_xy_plot(worksheet, x_col, y_col, plot_type)
+
+        # Apply optional styling
+        if color_map:
+            plot.color_map = color_map
+        
+        if shape_list:
+            plot.shape_list = shape_list
+
+        # Apply grouping if requested
+        if group_mode != GroupMode.NONE:
+            layer.group_plots(group_mode)
+
+        # Rescale the layer
+        layer.rescale()
+
+        return plot
 
 
 class MatrixPage(Page[oext_types.MatrixPage]):
@@ -533,232 +633,3 @@ class NotePage(PageBase[oext_types.NotePage]):
             text: Text content
         """
         self._obj.SetText(text)
-
-
-class FigurePage(GraphPage):
-    """
-    Enhanced graph page with plotting functionality.
-    Extends GraphPage with high-level plotting methods using DataPlot and GraphLayer.
-    Provides object-oriented interface for creating and managing plots with enum-based controls.
-    """
-
-    def __init__(self, graph_page: GraphPage, template: XYPlotType = None):
-        """
-        Initialize FigurePage wrapper.
-
-        Args:
-            graph_page: GraphPage to wrap
-            template: XYPlotType for plot type
-        """
-        super().__init__(graph_page._obj, graph_page.parent, graph_page.origin_instance)
-        
-        if template is None:
-            template = XYPlotType.LINE
-        
-        self._template = template
-
-    @classmethod
-    def create_new(cls, name: str = None, template: XYPlotType = None) -> 'FigurePage':
-        """
-        Create a new FigurePage.
-
-        Args:
-            name: Name for the new graph page
-            template: XYPlotType for plot type
-
-        Returns:
-            FigurePage: New FigurePage instance
-        """
-        
-        if template is None:
-            template = XYPlotType.SCATTER
-        
-        # Get the OriginInstance from the current context
-        # This is a workaround - in practice, users should use origin.new_graph()
-        # But for standalone creation, we need to access the global OriginExt
-        # Try to get the current Origin instance
-        try:
-            # Check if we have an active Origin instance
-            from . import OriginInstance
-            if hasattr(OriginInstance, '_OriginInstance__instance_count') and OriginInstance._OriginInstance__instance_count > 0:
-                # Use LabTalk through the existing instance
-                cmd = f'newpanel name:="{name}" template:="{str(template.value)}"' if name else f'newpanel template:="{str(template.value)}"'
-                oext.LT_execute(cmd.strip())
-                
-                # Get the newly created graph page
-                pages = list(oext.GetGraphPages())
-                if pages:
-                    return cls(pages[-1], template)
-            
-            raise RuntimeError("No active Origin instance found. Use OriginInstance.new_graph() instead.")
-            
-        except Exception as e:
-            raise RuntimeError(f"Failed to create FigurePage: {e}. Please use OriginInstance.new_graph() method.")
-
-    def get_active_layer(self) -> GraphLayer:
-        """
-        Get the active layer of the graph page.
-
-        Returns:
-            GraphLayer: The active graph layer
-        """
-        import OriginExt._OriginExt as oext
-        return GraphLayer(oext.GraphPage_GetLayer(self._obj, 0), self, self.origin_instance)
-
-    def plot_xy_data(self, worksheet, x_col: int, y_col: int = -1,
-                    plot_type = None, layer_index: int = 0,
-                    color_map = None, shape_list: list[int] = None,
-                    group_mode = None) -> DataPlot:
-        """
-        Plot XY data from worksheet with hierarchical structure.
-
-        Args:
-            worksheet: Worksheet containing data
-            x_col: X column index (0-based)
-            y_col: Y column index (0-based) or -1 for all columns after x_col
-            plot_type: XYPlotType enum (defaults to LINE_SYMBOL)
-            layer_index: Layer index to plot on (0 for first layer)
-            color_map: Optional ColorMap enum
-            shape_list: Optional list of shape indices
-            group_mode: GroupMode enum for plot grouping
-
-        Returns:
-            DataPlot: The created data plot
-        """
-        
-        if plot_type is None:
-            plot_type = XYPlotType.LINE_SYMBOL
-        if group_mode is None:
-            group_mode = GroupMode.DEPENDENT
-
-        # Get or create the target layer
-        if layer_index >= len(self):
-            # Add new layers if needed
-            while layer_index >= len(self):
-                self.add_graph_layer()
-        
-        layer = self[layer_index]
-
-        # Add the plot
-        plot = layer.add_xy_plot(worksheet, x_col, y_col, plot_type)
-
-        # Apply optional styling
-        if color_map:
-            plot.color_map = color_map
-        
-        if shape_list:
-            plot.shape_list = shape_list
-
-        # Apply grouping if requested
-        if group_mode != GroupMode.NONE:
-            layer.group_plots(group_mode)
-
-        # Rescale the layer
-        layer.rescale()
-
-        return plot
-
-    def plot_multiple_series(self, worksheet, x_col: int, y_cols: list[int],
-                           plot_type = None, layer_index: int = 0,
-                           color_map = None, shape_list: list[int] = None,
-                           group_mode = None) -> list[DataPlot]:
-        """
-        Plot multiple Y series against the same X column.
-
-        Args:
-            worksheet: Worksheet containing data
-            x_col: X column index (0-based)
-            y_cols: List of Y column indices (0-based)
-            plot_type: XYPlotType enum (defaults to LINE_SYMBOL)
-            layer_index: Layer index to plot on
-            color_map: Optional ColorMap enum
-            shape_list: Optional list of shape indices
-            group_mode: GroupMode enum for plot grouping
-
-        Returns:
-            list[DataPlot]: List of created data plots
-        """
-        
-        plots = []
-        for y_col in y_cols:
-            plot = self.plot_xy_data(worksheet, x_col, y_col, plot_type, 
-                                   layer_index, color_map, shape_list, GroupMode.NONE)
-            plots.append(plot)
-
-        # Apply grouping after all plots are created
-        if group_mode and group_mode != GroupMode.NONE:
-            layer = self[layer_index]
-            layer.group_plots(group_mode)
-            layer.rescale()
-
-        return plots
-
-    def create_grouped_plot(self, worksheet, x_col: int, 
-                          color_map = None,
-                          shape_list: list[int] = None,
-                          plot_type = None) -> DataPlot:
-        """
-        Create a grouped plot similar to the Origin example (Sample #5).
-
-        Args:
-            worksheet: Worksheet containing data
-            x_col: X column index (0-based)
-            color_map: ColorMap enum for coloring
-            shape_list: List of shape indices for different series
-            plot_type: XYPlotType enum
-
-        Returns:
-            DataPlot: The created grouped plot
-        """
-        
-        if plot_type is None:
-            plot_type = XYPlotType.LINE_SYMBOL
-        if color_map is None:
-            color_map = ColorMap.CANDY
-
-        # Plot whole sheet as XY plot (all columns after x_col as Y)
-        plot = self.plot_xy_data(worksheet, x_col, -1, plot_type, 0, color_map, shape_list)
-
-        # Get the layer and apply grouping
-        layer = self.get_active_layer()
-        layer.group_plots(GroupMode.DEPENDENT)
-
-        return plot
-
-    def set_page_size(self, width: float, height: float, units: int = 0) -> None:
-        """
-        Set the page size.
-
-        Args:
-            width: Page width
-            height: Page height
-            units: Units (0=inch, 1=cm, 2=mm, 3=pixel, 4=point)
-        """
-        self.set_width(width)
-        self.set_height(height)
-        self._obj.Units = units
-
-    def set_colors(self, base_color: int = None, grad_color: int = None) -> None:
-        """
-        Set page colors.
-
-        Args:
-            base_color: Base color index
-            grad_color: Gradient color index
-        """
-        if base_color is not None:
-            self.set_base_color(base_color)
-        if grad_color is not None:
-            self._obj.SetGradColor(grad_color)
-
-    def export_preview(self, filename: str) -> bool:
-        """
-        Export preview image of the page.
-
-        Args:
-            filename: Output filename
-
-        Returns:
-            bool: True if successful
-        """
-        return self.preview(filename)

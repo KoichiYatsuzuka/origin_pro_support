@@ -3,12 +3,14 @@ Base classes for OriginExt wrappers.
 
 This module contains the abstract base classes that provide common functionality
 for all OriginExt wrapper classes, and custom exception classes.
+Also contains the APP class for Origin application management.
 """
 from __future__ import annotations
 
+import OriginExt as oext
 import OriginExt.OriginExt as oext_types
 
-from typing import Iterator, Generic, TypeVar
+from typing import Iterator, Generic, TypeVar, Optional
 
 
 # ================== Custom Exception Classes ==================
@@ -61,6 +63,42 @@ class OriginCollection(Generic[T]):
         ...
 
 
+# ================== Application Management ==================
+
+class APP:
+    'OriginExt.Application() wrapper'
+    def __init__(self):
+        self._app = None
+        self._first = True
+    def __getattr__(self, name):
+        try:
+            return getattr(oext, name)
+        except AttributeError:
+            pass
+        if self._app is None:
+            self._app = oext.Application()
+            self._app.LT_execute('sec -poc') # wait until OC ready
+        return getattr(self._app, name)
+    def __bool__(self):
+        return self._app is not None
+    def Exit(self, releaseonly=False):
+        'Exit if Application exists'
+        if self._app is not None:
+            self._app.Exit(releaseonly)
+            self._app = None
+    def Attach(self):
+        'Attach to exising Origin instance'
+        releaseonly = True
+        if self._first:
+            releaseonly = False
+            self._first = False
+        self.Exit(releaseonly)
+        self._app = oext.ApplicationSI()
+    def Detach(self):
+        'Detach from Origin instance'
+        self.Exit(True)
+
+
 # ================== Abstract Base Wrapper Class ==================
 
 class OriginObjectWrapper(Generic[TOriginObject]):
@@ -72,47 +110,30 @@ class OriginObjectWrapper(Generic[TOriginObject]):
     Corresponds to: OriginExt.OriginExt.OriginObject, OriginExt.OriginExt.OriginBase
     """
 
-    def __init__(self, obj: TOriginObject, parent: Optional['OriginObjectWrapper'] = None, 
-                 origin_instance: Optional['OriginInstance'] = None):
+    def __init__(self, obj: TOriginObject, api_core: Optional['APP'] = None):
         """
-        Initialize the wrapper with OriginExt object and hierarchical references.
+        Initialize the wrapper with OriginExt object and API core reference.
 
         Args:
             obj: Original OriginExt object to wrap
-            parent: Parent wrapper object (for hierarchical navigation)
-            origin_instance: Root OriginInstance reference (for LabTalk access)
+            api_core: APP instance reference for LabTalk access
         """
         self._obj = obj
-        self._parent = parent
-        self._origin_instance = origin_instance
+        self.__API_core = api_core
 
     @property
-    def parent(self) -> Optional['OriginObjectWrapper']:
-        """Get the parent wrapper object"""
-        return self._parent
+    def api_core(self) -> Optional['APP']:
+        """Get the API core reference"""
+        return self.__API_core
 
-    @property
-    def origin_instance(self) -> Optional['OriginInstance']:
-        """Get the root OriginInstance reference"""
-        if self._origin_instance:
-            return self._origin_instance
-        elif self._parent:
-            return self._parent.origin_instance
-        return None
-
-    def get_origin_instance(self) -> Optional['OriginInstance']:
+    def get_origin_instance(self) -> Optional['APP']:
         """
-        Get the OriginInstance by traversing up the hierarchy.
+        Get the API core reference.
         
         Returns:
-            OriginInstance: The root OriginInstance or None if not found
+            APP: The API core or None if not found
         """
-        current = self
-        while current:
-            if hasattr(current, '_origin_instance') and current._origin_instance:
-                return current._origin_instance
-            current = getattr(current, '_parent', None)
-        return None
+        return self.__API_core
 
     # ================== Properties from OriginObject ==================
 

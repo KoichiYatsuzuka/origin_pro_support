@@ -15,16 +15,16 @@ from enum import Enum
 class PlotTypeInfo:
     """Immutable data class for plot type information.
     See the docstring of XYPlotType for more details."""
-    numeric_value: int
-    template_value: str
+    plot_id: int
+    template_name: str
     
     def __int__(self) -> int:
         """Cast to int, returns numeric value."""
-        return self.numeric_value
+        return self.plot_id
     
     def __str__(self) -> str:
         """Cast to str, returns template value."""
-        return self.template_value
+        return self.template_name
 
 
 # ================== Plot Enums ==================

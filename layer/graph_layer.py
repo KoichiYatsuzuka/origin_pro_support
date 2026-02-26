@@ -16,9 +16,12 @@ from collections.abc import Iterator
 
 from ..base import OriginObjectWrapper
 from .enums import ColorMap, AxisType, XYPlotType, GroupMode
+from .worksheet import Worksheet
+
+from ..base import APP
 
 if TYPE_CHECKING:
-    from ..origin_instance import OriginInstance
+    from ..pages import GraphPage
 
 
 # ================== DataPlot Class ==================
@@ -31,50 +34,59 @@ class DataPlot:
     Corresponds to: originpro.DataPlot, OriginExt.OriginExt.DataPlot
     """
 
-    def __init__(self, plot, parent: Optional['OriginObjectWrapper'] = None, 
-                 origin_instance: Optional['OriginInstance'] = None):
+    def __init__(self, plot, api_core: Optional['APP'] = None):
         """
         Initialize DataPlot wrapper with hierarchical references.
 
         Args:
-            plot: Original OriginExt.DataPlot instance to wrap
-            parent: Parent wrapper object (for hierarchical navigation)
-            origin_instance: Root OriginInstance reference (for LabTalk access)
+            plot: Original OriginExt.DataPlot instance to wrap or plot index
+            api_core: APP instance reference for LabTalk access
         """
+        if plot is None:
+            raise ValueError("DataPlot cannot be created with None plot object")
         self._plot = plot
-        self._parent = parent
-        self._origin_instance = origin_instance
+        self.__API_core = api_core
+        self._is_index = isinstance(plot, int)
+
 
     @property
-    def parent(self) -> Optional['OriginObjectWrapper']:
-        return self._parent
-
-    @property
-    def origin_instance(self) -> Optional['OriginInstance']:
-        """Get the root OriginInstance reference"""
-        if self._origin_instance:
-            return self._origin_instance
-        elif self._parent:
-            return self._parent.origin_instance
-        return None
+    def api_core(self) -> APP:
+        """Get the API core reference"""
+        return self.__API_core
 
     @property
     def name(self) -> str:
         """Short name of the data plot"""
+        if self._is_index:
+            # Use LabTalk to get the plot name
+            self.api_core.LT_execute(f"plot_name = layer.plot({self._plot + 1}).name$")
+            return self.api_core.LT_get_str("plot_name")
         return self._plot.Name
 
+    # @property
+    # def parent_layer(self) -> 'GraphLayer':
+    #     """Parent graph layer"""
+    #     return GraphLayer(self._plot.Parent, self.api_core)
+
     @property
-    def parent_layer(self) -> 'GraphLayer':
-        """Parent graph layer"""
-        return GraphLayer(self._plot.Parent)
+    def worksheet(self):
+        """Worksheet containing the plotted data"""
+        if self._is_index:
+            # Use LabTalk to get the worksheet name
+            self.api_core.LT_execute(f"ws_name = layer.plot({self._plot + 1}).name$")
+            ws_name = self.api_core.LT_get_str("ws_name")
+            # Get the worksheet object from the active page
+            self.api_core.LT_execute(f"ws = {ws_name}")
+            # Return None for now since we can't easily get the worksheet object
+            return None
+        worksheet_obj = oext.DataPlot_GetWorksheet(self._plot)
+        return Worksheet(worksheet_obj, self.api_core)
 
     @property
     def color_map(self) -> ColorMap:
-        try:
-            color_map_str = oext.DataPlot_GetColorMap(self._plot)
-            return ColorMap(color_map_str)
-        except ValueError:
-            return ColorMap.CANDY  # Default fallback
+        color_map_str = oext.DataPlot_GetColorMap(self._plot)
+        return ColorMap(color_map_str)
+
 
     @color_map.setter
     def color_map(self, value: ColorMap) -> None:
@@ -88,23 +100,17 @@ class DataPlot:
                 self._plot.Execute(f"set {self._plot.Range} -cmap {value.value}")
             except Exception as e2:
                 print(f"Alternative colormap setting also failed: {e2}")
+                raise RuntimeError(f"Failed to set color map: {e2}") from e2
 
     @property
     def shape_list(self) -> list[int]:
         """Get shape list"""
-        try:
-            return oext.DataPlot_GetShapeList(self._plot)
-        except Exception as e:
-            print(f"Failed to get shape list: {e}")
-            return []
+        return oext.DataPlot_GetShapeList(self._plot)
 
     @shape_list.setter
     def shape_list(self, value: list[int]) -> None:
         """Set shape list for the data plot"""
-        try:
-            oext.DataPlot_SetShapeList(self._plot, value)
-        except Exception as e:
-            print(f"Failed to set shape list: {e}")
+        oext.DataPlot_SetShapeList(self._plot, value)
 
     def change_data(self, data_obj, designation: str = 'Y', keep_modifiers: bool = False) -> bool:
         """
@@ -118,11 +124,7 @@ class DataPlot:
         Returns:
             bool: True if successful
         """
-        try:
-            return self._plot.ChangeData(data_obj, designation, keep_modifiers)
-        except Exception as e:
-            print(f"Failed to change data: {e}")
-            return False
+        return self._plot.ChangeData(data_obj, designation, keep_modifiers)
 
 
 # ================== Axis Class ==================
@@ -162,16 +164,12 @@ class Axis:
         Returns:
             tuple: (min_value, max_value)
         """
-        try:
-            axis_letter = self._get_axis_letter()
-            min_val = self._obj.LT_get_float(f"{axis_letter}.from")
-            max_val = self._obj.LT_get_float(f"{axis_letter}.to")
-            return (min_val, max_val)
-        except Exception as e:
-            print(f"Failed to get {self._axis_type.name} axis range: {e}")
-            return (0.0, 1.0)
+        axis_letter = self._get_axis_letter()
+        min_val = self._obj.LT_get_float(f"{axis_letter}.from")
+        max_val = self._obj.LT_get_float(f"{axis_letter}.to")
+        return (min_val, max_val)
 
-    def set_range(self, min_val: float, max_val: float) -> bool:
+    def set_range(self, min_val: float, max_val: float) -> None:
         """
         Set the axis range.
 
@@ -182,13 +180,9 @@ class Axis:
         Returns:
             bool: True if successful
         """
-        try:
-            axis_letter = self._get_axis_letter()
-            self._obj.LT_execute(f"{axis_letter}.from = {min_val}; {axis_letter}.to = {max_val}")
-            return True
-        except Exception as e:
-            print(f"Failed to set {self._axis_type.name} axis range: {e}")
-            return False
+        axis_letter = self._get_axis_letter()
+        self._obj.LT_execute(f"{axis_letter}.from = {min_val}; {axis_letter}.to = {max_val}")
+        return
 
     def get_reverse(self) -> bool:
         """
@@ -197,14 +191,10 @@ class Axis:
         Returns:
             bool: True if reversed
         """
-        try:
-            axis_letter = self._get_axis_letter()
-            return bool(self._obj.LT_get_int(f"{axis_letter}.reverse"))
-        except Exception as e:
-            print(f"Failed to get {self._axis_type.name} axis reverse status: {e}")
-            return False
+        axis_letter = self._get_axis_letter()
+        return bool(self._obj.LT_get_int(f"{axis_letter}.reverse"))
 
-    def set_reverse(self, reverse: bool) -> bool:
+    def set_reverse(self, reverse: bool) -> None:
         """
         Set whether the axis is reversed.
 
@@ -214,13 +204,9 @@ class Axis:
         Returns:
             bool: True if successful
         """
-        try:
-            axis_letter = self._get_axis_letter()
-            self._obj.LT_execute(f"{axis_letter}.reverse = {1 if reverse else 0}")
-            return True
-        except Exception as e:
-            print(f"Failed to set {self._axis_type.name} axis reverse: {e}")
-            return False
+        axis_letter = self._get_axis_letter()
+        self._obj.LT_execute(f"{axis_letter}.reverse = {1 if reverse else 0}")
+        return 
 
     def _get_axis_letter(self) -> str:
         """Get the axis letter for LabTalk commands"""
@@ -246,22 +232,40 @@ class GraphLayer(OriginObjectWrapper[oext_types.GraphLayer]):
     Corresponds to: originpro.GLayer, OriginExt.OriginExt.GraphLayer
     """
 
-    def __init__(self, layer: oext_types.GraphLayer, parent: Optional['OriginObjectWrapper'] = None, 
-                 origin_instance: Optional['OriginInstance'] = None):
+    def __init__(self, layer: oext_types.GraphLayer, api_core: APP, id: int, parent_page: Optional['GraphPage'] = None):
         """
         Initialize GraphLayer wrapper with hierarchical references.
 
         Args:
             layer: Original OriginExt.GraphLayer instance to wrap
-            parent: Parent wrapper object (for hierarchical navigation)
-            origin_instance: Root OriginInstance reference (for LabTalk access)
+            api_core: APP instance reference for LabTalk access
+            id: Layer ID
+            parent_page: Parent GraphPage reference (protected member)
         """
-        super().__init__(layer, parent, origin_instance)
+        super().__init__(layer, api_core)
+
+        self._id = id
+        self._parent_page = parent_page
+
+
+    @property
+    def id(self)->int:
+        """Get the graph layer ID"""
+        return self._id
 
     @property
     def data_plots(self):
         """Collection of data plots in this layer"""
-        return self._obj.DataPlots
+        # Ensure this layer is active
+        self.api_core.LT_execute("layer -a")
+        # Force layer refresh
+        self.api_core.LT_execute("layer -u")
+        # Use LabTalk to get plot count instead of direct access
+        self.api_core.LT_execute("layer -c")
+        # Return a list with index-based DataPlot objects
+        plot_count = self.api_core.LT_get_var("count")
+        print(f"[DEBUG] Plot count: {plot_count}")
+        return [DataPlot(i, self.api_core) for i in range(int(plot_count))]
 
     @property
     def graph_objects(self):
@@ -270,12 +274,15 @@ class GraphLayer(OriginObjectWrapper[oext_types.GraphLayer]):
 
     def __iter__(self) -> Iterator[DataPlot]:
         """Iterate over data plots"""
-        for plot in self._obj:
-            yield DataPlot(plot, self, self.origin_instance)
+        # Use LabTalk to get plot count
+        self.api_core.LT_execute("layer -c")
+        plot_count = self.api_core.LT_get_var("count")
+        for i in range(int(plot_count)):
+            yield DataPlot(i, self.api_core)
 
     def __getitem__(self, index: int) -> DataPlot:
         """Get data plot by index"""
-        return DataPlot(self._obj[index], self, self.origin_instance)
+        return DataPlot(index, self.api_core)
 
     def get_axis(self, axis_type: AxisType) -> Axis:
         """
@@ -293,10 +300,8 @@ class GraphLayer(OriginObjectWrapper[oext_types.GraphLayer]):
         """
         Rescale all axes in the layer.
         """
-        try:
-            self._obj.Execute("layer -a 100")  # Rescale all axes
-        except Exception as e:
-            print(f"Failed to rescale layer: {e}")
+        cmd = "layer -a 100"  # Rescale all axes
+        self.api_core.LT_execute(cmd)
 
     def rescale_axis(self, axis_type: AxisType) -> None:
         """
@@ -305,14 +310,12 @@ class GraphLayer(OriginObjectWrapper[oext_types.GraphLayer]):
         Args:
             axis_type: Type of axis to rescale
         """
-        try:
-            axis_letter = axis_type.name[0]  # X, Y, Z, or E
-            self._obj.Execute(f"layer -a {axis_letter}")
-        except Exception as e:
-            print(f"Failed to rescale {axis_type.name} axis: {e}")
+        axis_letter = axis_type.name[0]  # X, Y, Z, or E
+        cmd = f"layer -a {axis_letter}"
+        self.api_core.LT_execute(cmd)
 
-    def add_xy_plot(self, worksheet, x_col: int, y_col: int = -1, 
-                   plot_type: Optional[XYPlotType] = None) -> DataPlot:
+    def add_xy_plot(self, worksheet: Worksheet, x_col: int, y_col: int, 
+                   plot_type: XYPlotType) -> DataPlot:
         """
         Add an XY plot to this layer.
 
@@ -325,32 +328,54 @@ class GraphLayer(OriginObjectWrapper[oext_types.GraphLayer]):
         Returns:
             DataPlot: The created data plot
         """
-        if plot_type is None:
-            plot_type = XYPlotType.LINE_SYMBOL
+        
+        # Get fullname using worksheet's page name
+        book_name = worksheet._obj.GetPage().GetName()
+        worksheet_full_name = f"[{book_name}]{worksheet.name}"
 
-        try:
-            # Get the OriginExt worksheet object
-            worksheet_obj = worksheet._obj
-            
-            # Create the plot using LabTalk
-            if y_col == -1:
-                # Plot all columns after x_col as Y
-                cmd = f"plotxy {worksheet_obj.Name}!col({x_col + 1}) plot:={int(plot_type.value)}"
-            else:
-                # Plot specific X and Y columns
-                cmd = f"plotxy {worksheet_obj.Name}!col({x_col + 1}) col({y_col + 1}) plot:={int(plot_type.value)}"
-            
-            self._obj.Execute(cmd)
-            
-            # Get the newly created plot (last one in the collection)
-            plots = list(self._obj.DataPlots)
-            if plots:
-                return DataPlot(plots[-1], self, self.origin_instance)
-            
-        except Exception as e:
-            print(f"Failed to add XY plot: {e}")
-            
-        return None
+        # Use simple layer name without page specification
+        # Get parent page name from the parent page reference if available
+        if self._parent_page is not None:
+            parent_page_name = self._parent_page.name
+        else:
+            # Fallback: try to get from layer object
+            try:
+                parent_page_name = self._obj.GetPage().GetName()
+            except:
+                # Final fallback: use a generic name
+                parent_page_name = "Graph1"
+        
+        layer_name = f"Layer{self._id + 1}"
+        graph_full_name = f"[{parent_page_name}]{layer_name}"
+
+        # Create the plot using LabTalk
+            # Plot specific X and Y columns
+        cmd = \
+            f"plotxy iy:={worksheet_full_name}!({x_col+1},{y_col+1}) "+\
+            f"plot:={plot_type.value.plot_id} "+\
+            f"ogl:={graph_full_name}!"
+        
+        print(f"[DEBUG] Executing plot command: {cmd}")
+        
+        # Use API core for LabTalk execution
+        self.api_core.LT_execute(cmd)
+        
+        print("[DEBUG] Plot command executed successfully")
+        
+        # Force layer refresh after plot creation
+        self.api_core.LT_execute("layer -u")
+        
+        # Since we can't access the plot object directly through OriginExt,
+        # we'll create a DataPlot with a reference to the layer and index
+        # The actual plot object can be accessed through LabTalk when needed
+        self.api_core.LT_execute("plot_index = layer.plot.count - 1")
+        
+        # Use LT_get_var to get the variable value
+        plot_index = self.api_core.LT_get_var("plot_index")
+        print(f"[DEBUG] Plot index: {plot_index}")
+        
+        # Create a DataPlot with layer reference and index
+        return DataPlot(int(plot_index), self.api_core)
 
     def group_plots(self, group_mode: Optional[GroupMode] = None) -> None:
         """
@@ -360,13 +385,10 @@ class GraphLayer(OriginObjectWrapper[oext_types.GraphLayer]):
             group_mode: GroupMode enum for grouping type
         """
         if group_mode is None:
-            group_mode = GroupMode.NONE
-        
-        try:
-            group_value = group_mode.value
-            self._obj.Execute(f"layer -g {group_value}")
-        except Exception as e:
-            print(f"Failed to group plots: {e}")
+            group_mode = GroupMode.DEPENDENT
+
+        cmd = f"layer -g {group_mode.value}"
+        self.api_core.LT_execute(cmd)
 
     def get_parent_graph(self) -> oext_types.GraphPage:
         """

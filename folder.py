@@ -10,10 +10,10 @@ import OriginExt.OriginExt as oext_types
 from typing import Iterator, Optional, TYPE_CHECKING
 
 from .base import OriginObjectWrapper, OriginNameConflictError, OriginPageGenerationError
+from .pages import PageBase, WorkbookPage, GraphPage, MatrixPage, NotePage
 
 if TYPE_CHECKING:
-    from .pages import PageBase, WorkbookPage, GraphPage, MatrixPage, NotePage
-    from .layer import XYPlotType
+    from .layer.enums import XYPlotType
 
 # ================== Folder Class ==================
 
@@ -79,14 +79,15 @@ class Folder:
         """
         return self._folder.GetPath()
 
-    def get_name(self) -> str:
+    @property
+    def name(self) -> str:
         """
-        Get the name of this folder (last component of the path).
+        Get the name of the folder.
 
         Returns:
             str: Name of the folder
         """
-        path = self.Path
+        path = self._folder.Path
         # Extract the folder name from the path (last part after '/')
         return path.split('/')[-1] if path and '/' in path else path
 
@@ -186,83 +187,6 @@ class Folder:
         new_folder = self._folder.Folders.Add(name)
         return Folder(new_folder, self._core)
 
-
-
-
-    # def create_workbook(self, name: str, template: str = '') -> WorkbookPage:
-    #     """
-    #     Create a new workbook page in this folder.
-
-    #     Args:
-    #         name: Name for the workbook (required)
-    #         template: Optional template name
-
-    #     Returns:
-    #         WorkbookPage: The newly created workbook page
-        
-    #     Raises:
-    #         OriginNameConflictError: If a page with the same name already exists in this folder
-    #     """
-    #     # Check if a page with the same name already exists
-    #     if self.has_page(name):
-    #         raise OriginNameConflictError(f"A page with name '{name}' already exists in folder '{self.get_name()}'")
-        
-    #     # Use LabTalk command to create workbook in this folder
-    #     cmd = f'cd "{self.get_path()}"; newbook name:="{name}" template:="{template}"'
-    #     self._folder.Execute(cmd.strip())
-        
-    #     # Wait a moment for Origin to process
-    #     import time
-    #     time.sleep(0.5)
-        
-    #     # Try multiple approaches to find the newly created workbook
-        
-    #     # Method 1: Use folder's PageBases() - most reliable
-    #     try:
-    #         for page in self._folder.PageBases():
-    #             if page.Name == name or page.LongName == name:
-    #                 return WorkbookPage(page._obj)
-    #     except Exception as e:
-    #         print(f"Method 1 failed: {e}")
-        
-    #     # Method 2: Refresh and try again
-    #     try:
-    #         self._folder.Execute('page -r')
-    #         time.sleep(0.3)
-            
-    #         for page in self._folder.PageBases():
-    #             if page.Name == name or page.LongName == name:
-    #                 return WorkbookPage(page._obj)
-    #     except Exception as e:
-    #         print(f"Method 2 failed: {e}")
-        
-    #     # Method 3: Try to get from application root
-    #     try:
-    #         # Get application instance
-    #         app = self._folder.GetApplication()
-    #         pages = app.GetWorksheetPages()
-    #         for page in pages:
-    #             if page.Name == name or page.LongName == name:
-    #                 return WorkbookPage(page._obj)
-    #     except Exception as e:
-    #         print(f"Method 3 failed: {e}")
-        
-    #     # Method 4: Try LabTalk to get page info
-    #     try:
-    #         # Use LabTalk to list workbooks
-    #         self._folder.Execute('list w;')
-    #         time.sleep(0.2)
-            
-    #         # Try to find by name again
-    #         for page in self._folder.PageBases():
-    #             if page.Name == name or page.LongName == name:
-    #                 return WorkbookPage(page._obj)
-    #     except Exception as e:
-    #         print(f"Method 4 failed: {e}")
-        
-    #     # If not found, raise an error instead of returning None
-    #     raise RuntimeError(f"Failed to create workbook '{name}'. LabTalk command executed but workbook not found.")
-
     def new_workbook(self, name: str, template: str = '') -> Optional['WorkbookPage']:
         """
         Create a new workbook page in the root folder.
@@ -302,7 +226,7 @@ class Folder:
         app = self._core
         for page in app.GetWorksheetPages():
             if page.Name == name or page.LongName == name:
-                return WorkbookPage(page)
+                return WorkbookPage(page, self._core)
         
         # If not found, raise error instead of returning None
         raise OriginPageGenerationError(f"Failed to create workbook '{name}'. Command executed but workbook not found.")
@@ -322,18 +246,32 @@ class Folder:
         """
         # Check if a page with the same name already exists
         if self.has_page(name):
-            raise OriginNameConflictError(f"A page with name '{name}' already exists in folder '{self.get_name()}'")
+            raise OriginNameConflictError(f"A page with name '{name}' already exists in folder '{self.name}'")
         
         # Use LabTalk command to create graph in this folder
-        # Try using the OriginInstance's LabTalk execution instead
+        # Use __API_core for LabTalk execution
         cmd = f'newpanel name:="{name}" template:="{template}"'
-        self._folder.Execute(cmd.strip())
+        print(f"[DEBUG] Executing LabTalk command: {cmd}")
+        
+        # Execute using __API_core
+        if self._core:
+            self._core.LT_execute(cmd.strip())
+            print("[DEBUG] LabTalk command executed via __API_core.LT_execute")
+        else:
+            print("[DEBUG] No __API_core available, trying folder.Execute")
+            self._folder.Execute(cmd.strip())
         
         # Get the newly created graph by finding it by name
-        for page in self._folder.PageBases():
+        print("[DEBUG] Searching for created graph...")
+        pages = list(self._folder.PageBases())
+        print(f"[DEBUG] Found {len(pages)} pages in folder")
+        for page in pages:
+            print(f"[DEBUG] Page: {page.Name} (LongName: {page.LongName})")
             if page.Name == name or page.LongName == name:
-                return GraphPage(page._obj)
+                print(f"[DEBUG] Found matching page: {page.Name}")
+                return GraphPage(page, self._core)
         
+        print(f"[DEBUG] No page found with name: {name}")
         return None
 
     def create_matrix(self, name: str, template: str = '') -> MatrixPage:
@@ -361,7 +299,7 @@ class Folder:
         # Get the newly created matrix book by finding it by name
         for page in self._folder.PageBases():
             if page.Name == name or page.LongName == name:
-                return MatrixPage(page._obj)
+                return MatrixPage(page, self._core)
         return None
 
     def create_notes(self, name: str) -> NotePage:
@@ -388,7 +326,7 @@ class Folder:
         # Get the newly created notes page by finding it by name
         for page in self._folder.PageBases():
             if page.Name == name or page.LongName == name:
-                return NotePage(page._obj)
+                return NotePage(page, self._core)
         return None
 
     def get_pages_by_type(self, type_: str = '') -> list:
@@ -401,22 +339,21 @@ class Folder:
         Returns:
             list: List of page objects
         """
-        from .pages import WorkbookPage, GraphPage, MatrixPage, NotePage
-        
+     
         if type_ == 'w':
-            return [WorkbookPage(p) for p in self._folder.GetWorksheetPages()]
+            return [WorkbookPage(p, self._core) for p in self._folder.GetWorksheetPages()]
         elif type_ == 'g':
-            return [GraphPage(p) for p in self._folder.GetGraphPages()]
+            return [GraphPage(p, self._core) for p in self._folder.GetGraphPages()]
         elif type_ == 'm':
-            return [MatrixPage(p) for p in self._folder.GetMatrixPages()]
+            return [MatrixPage(p, self._core) for p in self._folder.GetMatrixPages()]
         elif type_ == 'n':
-            return [NotePage(p) for p in self._folder.GetNotesPages()]
+            return [NotePage(p, self._core) for p in self._folder.GetNotesPages()]
         else:
             # Get all pages
-            result = [WorkbookPage(p) for p in self._folder.GetWorksheetPages()]
-            result.extend([GraphPage(p) for p in self._folder.GetGraphPages()])
-            result.extend([MatrixPage(p) for p in self._folder.GetMatrixPages()])
-            result.extend([NotePage(p) for p in self._folder.GetNotesPages()])
+            result = [WorkbookPage(p, self._core) for p in self._folder.GetWorksheetPages()]
+            result.extend([GraphPage(p, self._core) for p in self._folder.GetGraphPages()])
+            result.extend([MatrixPage(p, self._core) for p in self._folder.GetMatrixPages()])
+            result.extend([NotePage(p, self._core) for p in self._folder.GetNotesPages()])
             return result
 
     def find_workbook(self, name: str):
@@ -426,12 +363,12 @@ class Folder:
         Args:
             name: Name of the workbook to find
         Returns:
-            WorkbookPage object or None if not found
+            WorkbookPage object
         """
-        from .pages import WorkbookPage
+
         for page in self._folder.GetWorksheetPages():
             if page.Name == name or page.LongName == name:
-                return WorkbookPage(page)
+                return WorkbookPage(page._obj, self._core)
         return None
 
     def find_graph(self, name: str):
@@ -443,10 +380,9 @@ class Folder:
         Returns:
             GraphPage object or None if not found
         """
-        from .pages import GraphPage
         for page in self._folder.GetGraphPages():
             if page.Name == name or page.LongName == name:
-                return GraphPage(page)
+                return GraphPage(page, self._core)
         return None
 
     def find_matrix(self, name: str):
@@ -458,10 +394,9 @@ class Folder:
         Returns:
             MatrixPage object or None if not found
         """
-        from .pages import MatrixPage
         for page in self._folder.GetMatrixPages():
             if page.Name == name or page.LongName == name:
-                return MatrixPage(page)
+                return MatrixPage(page, self._core)
         return None
 
     def __repr__(self) -> str:
