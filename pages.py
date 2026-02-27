@@ -168,11 +168,11 @@ class WorkbookPage(Page[oext_types.WorksheetPage]):
     def __iter__(self) -> Iterator[Worksheet]:
         """Iterate over worksheets"""
         for layer in self._obj:
-            yield Worksheet(layer, self, self.api_core)
+            yield Worksheet(layer, self.api_core)
 
     def __getitem__(self, index: int) -> Worksheet:
         """Get worksheet by index"""
-        return Worksheet(self._obj[index], self, self.api_core)
+        return Worksheet(self._obj[index], self.api_core)
 
     def get_layers(self) -> list[Worksheet]:
         """
@@ -183,7 +183,7 @@ class WorkbookPage(Page[oext_types.WorksheetPage]):
         Returns:
             list[Worksheet]: List of worksheets
         """
-        return [Worksheet(l, self, self.api_core) for l in self._obj.GetLayers()]
+        return [Worksheet(l, self.api_core) for l in self._obj.GetLayers()]
 
     def get_layer(self, index: int) -> Worksheet:
         """
@@ -197,7 +197,7 @@ class WorkbookPage(Page[oext_types.WorksheetPage]):
         Returns:
             Worksheet: The worksheet at the specified index
         """
-        return Worksheet(self._obj.GetLayer(index), self, self.api_core)
+        return Worksheet(self._obj.GetLayer(index), self.api_core)
 
     @overload
     def add_worksheet(self, name: str = '') -> 'Worksheet': ...
