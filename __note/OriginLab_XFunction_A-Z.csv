@@ -1,0 +1,547 @@
+﻿グループ,関数名,役割
+A,add_graph_to_graph,グラフをEMFオブジェクトとしてレイアウトページに貼り付け
+A,add_table_to_graph,グラフまたはレイアウトにリンクテーブルを追加
+A,add_wks_to_graph,ワークシートをレイアウトページに貼り付け
+A,add_xyscale_obj,グラフレイヤーに新しいXYスケールオブジェクトを追加
+A,addline,グラフレイヤーに垂直または水平線を描画
+A,addsheet,ワークシート/マトリックスブックにシートを追加
+A,addtool_cluster,プロット上に矩形/円を配置して基本統計を計算
+A,addtool_curve_deriv,プロット上に矩形を配置して微分を実行
+A,addtool_curve_fft,プロット上に矩形を配置してFFTを実行
+A,addtool_curve_integ,プロット上に矩形を配置して積分を実行
+A,addtool_curve_interp,プロット上に矩形を配置して補間を実行
+A,addtool_curve_intersect,プロット上に矩形を配置して2曲線の交点を計算
+A,addtool_curve_stats,プロット上に矩形を配置して範囲内の基本統計を計算
+A,addtool_integ2,等高線上の領域を選択してデータ表面の2D積分を実行
+A,addtool_quickfit,プロット上に矩形を配置してクイックフィッティングを実行
+A,addtool_quickpeaks,プロット上に矩形を配置してピーク検出・ベースライン減算・積分を実行
+A,addtool_rise_time (Pro),プロット上に矩形を配置して立ち上がり/立ち下がり時間を解析
+A,addtool_sigmoidal_fit,プロット上に矩形を配置してシグモイド曲線フィッティングを実行
+A,assays,アッセイテンプレート用のデータ形式とフィッティング関数を設定
+A,avecurves,複数の曲線を平均化または連結
+A,averagexy,複数の曲線を平均化または連結（出力のカスタマイズオプション付き）
+A,axis_scrollbar,グラフにスクロールバーオブジェクトを追加してズーム・パンを容易化
+A,axis_scroller,下部X軸に逆三角形のペアを追加してスケール変更を容易化
+B,batchProcess,解析テンプレートを使用してバッチ処理を実行
+B,blauto,指定したしきい値を使用してベースラインアンカーポイントを自動作成
+B,bspline,3次Bスプライン補間・外挿を実行
+C,cd,作業ディレクトリの変更または現在のパスを表示
+C,cdset,作業ディレクトリにインデックスを割り当て、または全インデックスとパスをリスト表示
+C,changeUFF,ユーザーファイルフォルダー（UFF）のパスを変更
+C,cloneimport,アクティブブックのインポート設定を複製して複数ファイルを一括インポート
+C,clrAllData,インポートデータをクリアして解析テンプレートプロジェクト用にリセット
+C,cmpfile,2つのバイナリファイルを比較
+C,cnormalize,XYデータまたはグラフ内のデータプロットを正規化（基準点選択オプション付き）
+C,cohere (Pro),2信号間のコヒーレンス解析を実行
+C,colcopy,ワークシート列間でデータ・ラベル・書式・マスク状態をコピー
+C,coldesig,列のプロット指定（X/Y/Z等）を設定
+C,colhide,指定した列を非表示/表示
+C,colint,選択したY列のサンプリング間隔を設定
+C,coljoinbydesig,プロット指定に基づいてXY列ペアを結合し一つの列グループに統合
+C,colmask,条件に基づいてセルをマスク（解析から除外）
+C,colmove,選択した列を指定位置に移動
+C,colors,カラーピッカーで画面ピクセル色を取得できるカラーダイアログを開く
+C,colreverse,列内の行範囲を逆順に並べ替え
+C,colshowx,選択したY列のX列を表示（サンプリング間隔をX列として抽出）
+C,colslideshow,指定列に依存する全グラフのスライドショーを表示
+C,colsplit,行インデックスのグループ化により1列を複数列に分割
+C,colstats,列の統計量（平均・標準偏差等）を計算
+C,colswap,2つの選択列の位置を入れ替え
+C,conv,2つの信号の畳み込みを計算
+C,copydata,数値データをクリップボードにコピー
+C,copyimg,OLEを使用せずに画像をクリップボードにコピー
+C,copynote,ノートウィンドウの内容をクリップボードにコピー
+C,copypic,様々な画像形式・オプションでページを画像としてクリップボードにコピー
+C,corr1,2つの信号の1D相互相関を計算
+C,corr2 (Pro),2D相互相関を実行
+C,corrcoef (Pro),2列以上のピアソン相関係数を計算
+C,crosstab (Pro),クロス集計（分割表）分析を実行
+C,csetvalue,列の値を数式やスクリプトで設定（「列の値の設定」メニューに相当）
+C,customMenu,カスタムメニューエディタダイアログを開く
+C,cv2col,画像ウィンドウのデータをワークシート列にエクスポート
+C,cv2mat,画像ウィンドウのデータをマトリックスシートにエクスポート
+C,cvcrop,画像ウィンドウの画像を指定領域でトリミング
+C,cvExport,画像ウィンドウの画像をファイルにエクスポート
+C,cvgraymax,グレースケール画像から最大輝度ピクセルの位置を検索
+C,cvhistogram,グレースケール画像のピクセル強度分布を新しいワークシートに生成
+C,cvmerge,分割されたチャンネル画像をカラー画像に統合
+C,cvOpen,画像ファイルを新しい画像ウィンドウにインポート
+C,cvPalette,画像にカラーパレット（LUT）を適用
+C,cvResize,画像ウィンドウの画像をリサイズ
+C,cvroiprofile,画像上の関心領域（ROI）のプロファイルをプロット
+C,cvSetXY,画像ウィンドウのXY座標スケールを設定
+C,cvsplit,カラー画像をチャンネル別（R/G/B等）に分割
+C,cw_evaluate (Pro),ウェーブレット係数を評価・信号を再構築（CWTの逆変換等）
+C,cwt (Pro),連続ウェーブレット変換（CWT）を実行
+C,cxt,アクティブ曲線のX値を様々なモードでシフト
+D,dbEdit,データベース接続用のSQLエディタダイアログを開く
+D,dbImport,ワークシートに保存されたクエリを使用してデータベースからデータをインポート
+D,dbInfo,データベース接続情報を表示
+D,dbPreview,データベースから上位n行をプレビューインポート
+D,debug_log,デバッグログファイルを作成（テクニカルサポート送付用）
+D,decimate (Pro),N点ごとにデータを間引き、各区間を基本統計値で代表
+D,deconv,2信号のデコンボリューションを計算
+D,dfilter (Pro),IIRデジタルフィルタを設計・適用
+D,dfilterapply,指定係数を使用してIIRフィルタを既存データに適用
+D,dfilterfcf (Pro),IIRフィルタ係数を含むMATLAB fcfファイルをインポート・エクスポート
+D,differentiate,XYデータの数値微分（導関数）を計算
+D,dir,現在の作業ディレクトリ内のスクリプトファイルとX-Functionをリスト表示
+D,discfreqs,連続スペクトルから離散周波数成分を特定・抽出
+D,discrim (Pro),判別分析および正準判別分析を実行
+D,distfit (Pro),データにパラメトリック確率分布をフィット
+D,diststats,確率分布の統計量（パーセンタイル・クォンタイル等）を計算
+D,dlgChkList,ユーザー選択をワークシートに出力するチェックリストダイアログを表示
+D,dlgFile,ファイル選択（Open）ダイアログを開く
+D,dlgPath,フォルダ選択ダイアログを開く
+D,dlgPickFiles,複数ファイルを選択するためのファイル選択ダイアログを開く
+D,dlgRowColGoto,指定した行・列に移動して選択
+D,dlgSave,ファイル保存名を指定するSave Asダイアログを開く
+D,dlgTheme,ダイアログテーマの選択・管理ダイアログを開く
+D,dwt (Pro),離散ウェーブレット変換（DWT）を実行
+D,dwt2 (Pro),2D離散ウェーブレット変換を実行
+E,envelope (Pro),信号の上包絡線・下包絡線を生成
+E,expASC,ワークシートデータをASCIIファイルにエクスポート
+E,expExcel,ワークシートデータをExcel形式にエクスポート
+E,expG2img,グラフをラスター画像ファイルにエクスポート
+E,expG2video,グラフをラスター動画ファイルにエクスポート
+E,expGraph,グラフをグラフィックスファイルにエクスポート
+E,expImage,アクティブな画像ウィンドウをグラフィックスファイルにエクスポート
+E,expm2video,マトリックスオブジェクトを画像スタックとしてエクスポート
+E,expMatASC,マトリックスデータをASCIIファイルにエクスポート
+E,expMatNC,マトリックスデータをNetCDFファイルにエクスポート
+E,expNITDM,ワークブックデータをNational Instruments TDM/TDMSファイルにエクスポート
+E,expPDFw,ワークシートを複数ページPDFにエクスポート
+E,expSHP,データをShapefile（GIS形式）にエクスポート
+E,expSQLite,ワークシートをSQLiteデータベースファイルにエクスポート
+E,expWAV,データをMicrosoft PCM WAVオーディオファイルにエクスポート
+E,expWks,アクティブシートをラスター/ベクター画像ファイルにエクスポート
+E,expXLS,ワークブックをExcel（XLS）形式にエクスポート
+E,expXML,アクティブシートをXMLファイルにエクスポート
+F,fft1,高速フーリエ変換（FFT）を実行してスペクトルを計算
+F,fft2 (Pro),2D高速フーリエ変換を実行
+F,fft_filter2,2DFFTフィルタリングを実行
+F,fft_filters,FFTフィルタリング（ローパス/ハイパス/バンドパス等）を実行
+F,filelog,文字列をログファイルに追記出力
+F,files2dc,複数ファイルへのデータコネクターを作成
+F,filltext,ワークシート範囲のセルをランダムな文字列で埋める
+F,filter2,マトリックスにカスタムカーネルフィルタを適用
+F,FindApp,インストール済みOrigin Appを検索・起動
+F,findBase,ピーク解析に適したベースライン候補領域を検索
+F,findFiles,指定パスからファイルを検索して一覧取得
+F,findFolders,指定パスからフォルダを検索して一覧取得
+F,findrelated,選択データに関連するグラフ・解析結果・ワークシートを検索
+F,findreplace,検索・置換ダイアログを開く
+F,fitcmpdata (Pro),指定フィッティングモデルで2つのデータセットを統計的に比較
+F,fitcmpmodel (Pro),1つのデータセットに対して2つのフィッティングモデルを比較
+F,fitexp,指数関数で非線形曲線フィッティングを実行
+F,fitLR,線形回帰（最小二乗法）を実行
+F,fitmatrix (Pro),マトリックスデータに非線形フィッティングを実行
+F,fitMR,重回帰分析を実行
+F,fitpeaks,グラフ上でピーク中心を指定してマルチピークフィッティングを実行
+F,fitpoly,多項式回帰を実行
+F,fitsigmoidal,シグモイド関数で曲線フィッティングを実行
+F,fitsurface (Pro),XYZデータに非線形サーフェスフィッティングを実行
+F,freqcounts,データの頻度分布（度数集計）を計算
+F,friedman (Pro),フリードマン検定（ノンパラメトリック二元配置検定）を実行
+F,funcRank,複数のフィッティング関数に対してフィットしてAIC/BICでランク付け
+G,g2layout,選択したグラフを新しいレイアウトページに追加
+G,g2w,グラフをm×n配置でワークシートセルに移動・埋め込み
+G,get_plot_sel,グラフ内の選択データプロットの情報を取得
+G,get_wks_sel,ワークシートの選択範囲情報を取得
+G,getnlr,レポートシートから非線形フィッティング結果をツリー変数に読み込み
+G,getresults,解析レポートシートから結果をツリー変数に読み込み
+G,getXYName,アクティブグラフのXY列名を取得
+G,gfitp,グラフレイヤーをページ内にタイトフィットするよう自動調整
+G,group_server,グループサーバーへの接続・管理を行う
+G,groupmgr,グループフォルダーマネージャーダイアログを開く
+G,grubbs,グラブス検定でデータセット内の外れ値を検出
+G,gxy2w,グラフのXYデータをワークシートに出力
+H,hcluster (Pro),階層的クラスター分析を実行
+H,hilbert (Pro),ヒルベルト変換を実行して瞬時振幅・位相・周波数を計算
+I,idwt (Pro),離散ウェーブレット逆変換（IDWT）で信号を再構築
+I,idwt2 (Pro),2D離散ウェーブレット逆変換を実行
+I,ifft1,逆高速フーリエ変換（IFFT）を実行
+I,ifft2 (Pro),マトリックスデータの2D逆フーリエ変換を実行
+I,imageprofile,マトリックス画像上の直線プロファイルを抽出・グラフ表示
+I,imfcat,複数の画像ファイルを1枚の画像に連結
+I,img2GIF,アクティブな画像ウィンドウをGIFファイルにエクスポート
+I,img2m,グレースケール画像をデータマトリックスに変換
+I,img2xyz (Pro),画像内の選択領域の強度データとXY座標をXYZ形式でワークシートに抽出
+I,imgAutoBinary,自動しきい値でグレースケール画像を2値化
+I,imgAutoLevel,画像に自動レベル調整を適用
+I,imgAverage,複数フレーム画像を平均化してノイズ低減
+I,imgBalance,画像のカラーバランスを調整
+I,imgBinary,指定しきい値でグレースケール画像を2値化
+I,imgBlend (Pro),2画像をアルファブレンドで合成
+I,imgBrightness,画像の輝度を調整
+I,imgC2gray,カラー画像をグレースケールに変換
+I,imgClear,画像ウィンドウの画像データをクリア
+I,imgColorlevel,画像のカラーレベル（入出力範囲）を調整
+I,imgColorReplace,画像の特定色を別の色に置換
+I,imgContrast,画像のコントラストを調整
+I,imgCrop,画像を指定領域でトリミング
+I,imgDynamicBinary (Pro),動的しきい値（局所適応しきい値）で画像を2値化
+I,imgEdge,エッジ検出フィルタを適用
+I,imgFile,画像ウィンドウに新しい画像ファイルをインポート
+I,imgFlip,画像を水平または垂直に反転
+I,imgFuncLUT (Pro),カスタム関数で定義したルックアップテーブル（LUT）を画像に適用
+I,imgGamma,画像にガンマ補正を適用
+I,imgGaussian,ガウシアンフィルタで画像をスムージング
+I,imgHistcontrast,ヒストグラムストレッチングでコントラストを強調
+I,imgHisteq,ヒストグラム均等化で画像を処理
+I,imgHistogram,画像のピクセル強度ヒストグラムをグラフ表示
+I,imgHue,画像の色相を調整
+I,imgInfo,画像の基本パラメータ（サイズ・ビット深度等）をスクリプトウィンドウに出力
+I,imgInvert,画像の色調を反転
+I,imgLevel (Pro),画像のレベル（入出力範囲）を手動で細かく調整
+I,imgMathfun (Pro),画像データに数学関数を適用
+I,imgMedian,メジアンフィルタで画像のノイズを除去
+I,imgMorph (Pro),形態学的変換（膨張・収縮・開・閉など）を適用
+I,imgNoise,画像にノイズを付加（テスト用）
+I,imgOffset,画像の輝度/色にオフセット値を加算
+I,imgPalette,画像にカラーパレット（LUT）を適用
+I,imgPixlog (Pro),画像のピクセル強度の対数マッピングを適用
+I,imgReplaceBg (Pro),画像の背景を別の色や画像で置換
+I,imgResize,画像をリサイズ（解像度変更）
+I,imgRGBmerge (Pro),分離したRGBチャンネル画像をカラー画像に統合
+I,imgRGBsplit (Pro),カラー画像をRGB各チャンネル画像に分割
+I,imgRotate,画像を任意の角度で回転
+I,imgSaturation,画像の彩度を調整
+I,imgScale (Pro),画像のピクセル値を指定範囲にスケーリング
+I,imgSharpen,シャープネスフィルタで画像の輪郭を強調
+I,imgShear,画像にシアー（ずり）変換を適用
+I,imgSimpleMath (Pro),2画像間の加算・減算・乗算・除算等の演算を実行
+I,imgstack,複数画像ファイルを1つの画像ウィンドウにスタックとして読み込み
+I,imgSubtractBg (Pro),ローリングボールアルゴリズムで画像の背景を自動除去
+I,imgSubtractInterpBG (Pro),補間ベースラインで画像の背景を減算
+I,imgThreshold (Pro),多段階しきい値処理を画像に適用
+I,imgTrim,画像の余白部分を自動トリミング
+I,imgUnsharpmask,アンシャープマスクで画像の輪郭を強調
+I,imgUserfilter (Pro),カスタムカーネルを使ったユーザー定義フィルタを適用
+I,impASC,ASCIIテキストファイルをインポート
+I,impBin2d,2Dバイナリ配列ファイルをインポート
+I,impBRUKER,BRUKER OPUS・NanoScopeファイルをインポート
+I,impCDF,CDFファイル（v3.0以下）をインポート
+I,impCSV,CSVファイルをインポート
+I,impDT,Data Translation 1.0形式ファイルをインポート
+I,impEDF,EDF/BDF/REC/HYP形式の生体電気信号ファイルをインポート
+I,impEP,EarthProbe（EPA）ファイルをインポート
+I,impExcel,ExcelファイルをCOMコンポーネントでインポート（旧式、impMSExcel推奨）
+I,impFamos,Famosファイルをインポート
+I,impFile,事前定義フィルタを使用してファイルをインポート
+I,impFileSel,インポート前にファイル構造情報をLabTalkツリー変数に格納
+I,impHDF5,HDF5ファイル（v1.8.2以下）をインポート
+I,impHEKA,HEKA形式（.dat）ファイルをインポート
+I,impIgorPro,"WaveMetrics IgorPro（.pxp, .ibw）ファイルをインポート"
+I,impImage,画像ファイルを新しいマトリックスウィンドウにインポート
+I,impinfo,インポートファイルの構造情報を読み取り
+I,impISF,Tektronix ISFファイルをインポート
+I,impJCAMP,JCAMP-DX Version 6形式ファイルをインポート
+I,impJNB,SigmaPlot（.JNB）ファイルをインポート
+I,impKG,KaleidaGraphファイルをインポート
+I,impMatlab,MATLABファイルをインポート
+I,impMDF,ETAS INCA MDF形式ファイルをインポート
+I,impMNTB,Minitab（.MTW/.MPJ）ファイルをインポート
+I,impMSExcel,ExcelファイルをExcelなしで直接インポート（推奨版）
+I,impMZXML,MZXMLファイルをインポート
+I,impNetCDF,NetCDFファイル（v4.0以下）をインポート
+I,impNetCDFEx,NetCDFファイル（v4.01未満）をインポート
+I,impNIDIAdem,National Instruments DIAdem 10.0ファイルをインポート
+I,impNITDM,National Instruments TDM/TDMSファイルをインポート
+I,impODQ,.ODQファイルをインポート
+I,impOPJ,Origin Project（.OPJ/.ORG/.OGW）ファイルをインポート
+I,imppClamp,pCLAMP（ABF 1.8/2.0）ファイルをインポート
+I,impPrism,GraphPad Prismファイルをインポート
+I,impSAS,SASファイルをインポート
+I,impSIE,nCode Somat SIE 0.92ファイルをインポート
+I,impSPC,Thermo（.SPC/.CGM）ファイルをインポート
+I,impSPE,Princeton Instruments（.SPE）ファイルをインポート
+I,impSPSS,SPSSファイルをインポート
+I,impWav,WAVオーディオファイルをインポート
+I,insert_graph_to_layer,グラフを別グラフウィンドウのレイヤーに挿入
+I,insert_wks_to_layer,ワークシートをグラフレイヤーに挿入
+I,insertArrow,グラフに矢印オブジェクトを挿入
+I,insertCmt,ワークシートセルにコメントを挿入
+I,insertGraph,グラフをワークシートセルに埋め込み挿入
+I,insertImg,画像ファイルをワークシートセルに挿入
+I,insertImg2g,グラフィックファイルをグラフウィンドウに挿入
+I,insertNotes,グラフウィンドウにノートオブジェクトを挿入
+I,insertSparklines,ワークシートセルにスパークライン（ミニグラフ）を挿入
+I,insertVar,ワークシートセルにLabTalk変数値を挿入
+I,instOPX,Origin XMLパッケージ（.OPX）をインストール
+I,Integ1,XYデータの数値積分（曲線下面積）を計算
+I,integ2 (Pro),マトリックスデータの2D積分（体積）を計算
+I,interp1,指定したX値セットでXYデータを補間・外挿
+I,interp1q,XYデータの補間を高速実行（簡易版）
+I,interp1trace,XYデータのトレース/周期補間を実行（周期的曲線向け）
+I,interp1xy,複数の手法でXYデータの補間・外挿を実行
+I,interp2,指定XY値セットでXYZ散布データを補間
+I,interp3,3D散布データの補間を実行
+I,interpxyz,XYZデータのトレース/周期補間を実行
+I,intersect,2つのXYデータセットの交点座標を計算
+I,iwFilter,インポートフィルタ（IWF）を作成・編集
+K,kaplanmeier (Pro),カプラン・マイヤー法で生存時間解析を実行
+K,kmeans (Pro),K-meansクラスター分析を実行
+K,kstest,コルモゴロフ-スミルノフ1標本検定（正規性検定）を実行
+K,kstest2 (Pro),コルモゴロフ-スミルノフ2標本検定を実行
+K,kwanova (Pro),クラスカル-ウォリス一元配置分散分析（ノンパラメトリック）を実行
+L,label_layer,グラフレイヤーにラベル（番号・文字等）を追加
+L,language,Originの表示言語を変更
+L,layadd,グラフに新しいレイヤーを追加
+L,layalign,指定レイヤーに合わせてグラフレイヤーを整列
+L,layarrange,複数グラフレイヤーの位置と大きさを自動配置
+L,laycolor,グラフレイヤーの背景色を設定
+L,laycopyscale,指定レイヤーの軸スケールを他のレイヤーにコピー
+L,layextract,アクティブグラフのレイヤーを新しいグラフウィンドウに分割抽出
+L,laylink,複数グラフレイヤーを指定レイヤーにリンク（軸スケール共有）
+L,laymanage,グラフレイヤー管理ダイアログを開く（追加・編集・整列・リンク）
+L,laymplot,アクティブレイヤーからプロットを別レイヤーに移動
+L,laymxn,m×n配置でグラフレイヤーを自動配置
+L,laysetfont,グラフレイヤー内のフォントを一括設定
+L,laysetpos,1つ以上のグラフレイヤーの位置を設定
+L,laysetratio,グラフレイヤーの縦横比を設定
+L,laysetscale,グラフレイヤーの軸スケールを設定
+L,laysetunit,グラフレイヤーのサイズ単位（cm/インチ等）を設定
+L,layswap,2つのグラフレイヤーのプロット位置と順序を交換
+L,laytoggle,グラフレイヤーの表示・非表示を切り替え
+L,layzoom,グラフレイヤーを指定倍率でズーム
+L,lc,X-Functionカテゴリ一覧を表示または指定カテゴリの全関数をリスト
+L,legendbox,ボックスチャート用コンポーネント凡例を作成
+L,legendcat,カテゴリカル値の凡例を追加・更新・置換
+L,legendupdate,グラフの凡例を更新または再構築
+L,levelcrossing,指定Y値に対応するX値（レベル交差点）を検索
+L,lic,モジュールライセンスファイルをOriginに追加
+L,lillietest,リリーフォース正規性検定を実行
+L,lvvicopy,Origin Sub-VIをLabVIEW User.libサブフォルダにコピー
+L,lx,名前・キーワード等でX-Functionを検索・リスト表示
+M,m2img,マトリックスデータを画像ウィンドウに変換
+M,m2v,マトリックスをベクター（1列）に変換
+M,m2w,マトリックスデータをワークシートに変換
+M,map2c,振幅マトリックスと位相マトリックスを複素数マトリックスに合成
+M,marea (Pro),マトリックスまたはXYZデータから表面積を計算
+M,mathtool,ワークシートデータに基本的な数学演算（加減乗除等）を適用
+M,mc2ap,複素数マトリックスを振幅と位相のマトリックスに変換
+M,mc2ri,複素数マトリックスを実部・虚部のマトリックスに変換
+M,mcellextract,マトリックスの選択範囲を別のマトリックスに抽出
+M,mcopy,マトリックスをコピー
+M,mCrop,マトリックスを指定領域でトリミング
+M,mdim,マトリックスの次元・座標スケールを設定または取得
+M,mdwt (Pro),マトリックスデータに離散ウェーブレット変換を実行
+M,medianflt2,マトリックスデータに2Dメジアンフィルタを適用
+M,mediantest (Pro),ムードのメジアン検定（ノンパラメトリック）を実行
+M,merge_book,複数のワークブックを1冊に統合
+M,merge_graph,複数のグラフを1つのグラフウィンドウに統合
+M,mexpand,マトリックスを指定倍率で拡張（アップサンプリング）
+M,mflip,マトリックスを水平または垂直に反転
+M,mg2layout,複数グラフを新しいレイアウトページに自動配置
+M,mgrid,マトリックスのXY座標グリッドを設定
+M,minterp2,指定XY値セットでマトリックスデータを補間
+M,minverse,正方行列の逆行列を計算
+M,mkdir,新しいディレクトリ（フォルダ）を作成
+M,MkOPX,Origin XMLパッケージ（.OPX）ファイルを作成
+M,mks,データプロット内のデータマーカーを取得
+M,mlabelbywcol,マトリックスレイヤーに対応するワークシート列名でラベルを付ける
+M,mmathtool,マトリックスデータに基本的な数学演算を適用
+M,mmoments (Pro),マトリックスの画像モーメントを計算
+M,mo2s,複数マトリックスオブジェクトを持つマトリックスレイヤーを複数レイヤーのマトリックスページに変換
+M,moments,データの統計的モーメント（平均・分散・歪度・尖度）を計算
+M,mproperty,マトリックスシートのプロパティを取得・設定
+M,mquantiles (Pro),マトリックスデータのパーセンタイルを計算
+M,mreplace,マトリックスの指定値を別の値に置換
+M,mri2c,2つのマトリックスの実数から複素数マトリックスを作成
+M,mroi2mat,マトリックス上のROI（関心領域）を新しいマトリックスに抽出
+M,mroi2xyz,マトリックス上のROI内データをXYZ形式でワークシートに抽出
+M,mroiprofile,マトリックス上のROIのプロファイルをプロット
+M,mrotate90,マトリックスを90度単位で回転
+M,ms2o,複数マトリックスシートを1枚のシートに統合（複数マトリックスオブジェクトとして）
+M,msclip,マトリックスデータを指定範囲でクリッピング（範囲外を欠損値に）
+M,msetvalue,マトリックスの値を数式やスクリプトで設定
+M,mshrink,マトリックスを縮小（ダウンサンプリング）
+M,msmooth,マトリックスデータを平滑化
+M,msresize,マトリックスシートの行数・列数を変更
+M,mstacklr,マトリックスを左右方向に重ねて結合
+M,mstackstats,マトリックススタックの統計量を計算
+M,mstats (Pro),マトリックスデータの記述統計（平均・標準偏差等）を計算
+M,msubtract,マトリックスから別のマトリックスを減算
+M,mtranspose,マトリックスを転置
+M,mwtest (Pro),マン・ホイットニー検定（ウィルコクソン順位和検定）を実行
+M,mxy2grid,マトリックスのXY座標をグリッド形式に変換
+N,nccopy,データコネクター付きブックのコピー操作を管理
+N,NewApp,新しいOrigin Appを起動・インストール
+N,newbook,新しいワークブックまたはマトリックスブックを作成
+N,newHTML,新しいHTMLレポートウィンドウを作成
+N,newinset,グラフページに挿入グラフ（インセット）を追加
+N,newpanel,指定したm×nレイヤー配置で新しいグラフウィンドウを作成
+N,newsheet,新しいワークシートを作成
+N,nlbegin,非線形フィッティングセッションを開始（XYデータ用）
+N,nlbeginm (Pro),非線形フィッティングセッションを開始（マトリックスデータ用）
+N,nlbegino,非線形フィッティングセッションを開始（任意データ用）
+N,nlbeginor,非線形フィッティングセッションを開始（直交回帰用）
+N,nlbeginr,非線形フィッティングセッションを開始（範囲データ用）
+N,nlbeginz (Pro),非線形フィッティングセッションを開始（XYZデータ用）
+N,nlend,非線形フィッティングセッションを終了して結果を出力
+N,nlfit,ダイアログなしで非線形カーブフィッティングを実行
+N,nlfitpeaks,マルチピーク非線形フィッティングを実行
+N,nlfn,現在の非線形フィッティング関数を設定・取得
+N,nlgui,非線形フィッティングのGUIダイアログを開く
+N,nlpara,非線形フィッティングのパラメータを設定・取得
+N,normalize,XYデータまたはグラフ内のプロットを様々な方法で正規化
+P,pa,ピーク解析（Peak Analyzer）ダイアログを開いてピーク処理を実行
+P,palApply,グラフに指定のカラーパレットを適用
+P,paMultiY,複数Y範囲に対してピーク解析を一括適用
+P,patternD,ワークシートデータの日付/時刻パターンを検出・変換
+P,patternN,ワークシートデータの数値パターンを検出・変換
+P,patternT,ワークシートデータのテキストパターンを検出・変換
+P,pb,ピーク解析のベースライン処理（作成・フィッティング）を実行
+P,pca (Pro),主成分分析（PCA）を実行
+P,pclampplotcontrol,pClampデータのプロット表示設定を制御
+P,pcorrcoef (Pro),偏相関係数を計算
+P,pe_cd,プロジェクトエクスプローラーの作業ディレクトリを変更
+P,pe_dir,プロジェクトエクスプローラーのディレクトリ内容をリスト表示
+P,pe_load,Origin プロジェクトをロード（開く）
+P,pe_mkdir,プロジェクトエクスプローラーで新しいフォルダを作成
+P,pe_move,プロジェクトエクスプローラーでウィンドウを別フォルダに移動
+P,pe_path,プロジェクトエクスプローラーのフォルダパスを取得・設定
+P,pe_rename,プロジェクトエクスプローラーのウィンドウやフォルダを名前変更
+P,pe_rmdir,プロジェクトエクスプローラーのフォルダを削除
+P,pe_save,プロジェクトをファイルに保存
+P,pef_pptslide,プロジェクトエクスプローラーのフォルダ内グラフをPowerPointスライドにエクスポート
+P,pef_slideshow,プロジェクトエクスプローラーのフォルダ内グラフのスライドショーを実行
+P,pemp_pptslide,マルチページグラフをPowerPointスライドにエクスポート
+P,pemp_slideshow,マルチページグラフのスライドショーを実行
+P,pep_addshortcuts,プロジェクトエクスプローラーにショートカットを追加
+P,pesp_gotofolder,プロジェクトエクスプローラーで指定フォルダに移動
+P,pfit2l,指定した2つのレベルでデータにフィットを実行
+P,phm_Cox (Pro),Cox比例ハザードモデルで生存時間回帰解析を実行
+P,pickpts,グラフ上でマウスを使って手動でデータポイントを選択・取得
+P,pkFind,信号データのピーク検出を実行してピーク位置・幅・高さを取得
+P,plot_2x,2つのX軸を持つダブルX軸グラフを作成
+P,plot_BA,ブランド-アルトマン（一致性）プロットを作成
+P,plot_bygroup,グループ情報に基づいてマルチパネルグラフを作成
+P,plot_chord,コード（弦）ダイアグラムを作成
+P,plot_durov,デュロフ（三線式）ダイアグラムを作成
+P,plot_gboxindexed,インデックス付きデータからグループ化ボックスチャートを作成
+P,plot_gdot,グループ化ドットプロット（スタック対応）を作成
+P,plot_gfloatbar,グループ化フローティングバーチャートを作成
+P,plot_gindexed,インデックス付きデータからグループ化カラムプロットを作成
+P,plot_group,グループ変数によるマルチパネルトレリスプロットを作成
+P,plot_heatmapxy,XYデータからヒートマップを作成
+P,plot_heatmapxyz,XYZデータからヒートマップを作成
+P,plot_kde2,カーネル密度推定に基づく2Dカーネル密度プロットを作成
+P,plot_lineser,2〜3シリーズのY値を直線で接続したグラフを作成
+P,plot_marginal,主グラフに周辺分布グラフを付加した複合グラフを作成
+P,plot_matrix,複数列の散布図行列（Scatter Matrix）を作成
+P,plot_mosaic,カテゴリカルデータのモザイクプロットを作成
+P,plot_multivari,マルチバリチャートを作成
+P,plot_network,ネットワーク図（ノード・エッジ）を作成
+P,plot_paretobin,ビン化データからパレート図を作成
+P,plot_paretoraw,生データからパレート図を作成
+P,plot_prob,指定分布の確率プロットまたはQ-Qプロットを作成
+P,plot_rowwise,行方向のデータからプロットを作成
+P,Plot_transpose_donut,転置データ対応のドーナツチャートを作成
+P,plot_vari,マルチバリチャートを作成
+P,plot_windrose,風向・風速データからウィンドローズ（風配図）を作成
+P,plot_xyz3dstack,XYZデータから3Dスタックグラフを作成
+P,plot_xyzquiver,等高線プロット上にグラジエントベクトルまたはストリームラインを重ねる
+P,plotbylabel,列ラベルでグルーピングして複数レイヤーグラフを作成
+P,plotcpack,階層構造を可視化する円形パッキンググラフを作成
+P,plotellipse,グラフに統計的楕円（信頼楕円等）を追加
+P,plotgboxraw,生データからグループ化ボックスプロットを作成
+P,plotgroup,ページ・レイヤー・データグループの変数でプロットを組織化
+P,plotm,マトリックスオブジェクトから3Dグラフを作成
+P,plotmatrix,全選択データセット間の散布図行列を作成
+P,plotms,マトリックスシートの全オブジェクトからカラーフィルサーフェス図を作成
+P,plotmultivm,複数の仮想マトリックスから3Dまたは等高線グラフを作成
+P,plotmyaxes,マルチ軸プロットの軸配置をカスタマイズ
+P,plotpClamp,pClampデータをグラフ化
+P,plotpiper,パイパープロット（水質分析用三角ダイアグラム）を作成または拡張
+P,plotstack,スタック（積み重ね）マルチパネルグラフを作成
+P,plotvm,ワークシートセル範囲を仮想マトリックスとして3Dまたは等高線グラフに描画
+P,plotxy,XYデータを指定グラフタイプでプロット（汎用）
+P,plotxyz,XYZデータを指定グラフタイプで3Dプロット（汎用）
+Q,quantiles,ワークシート列のパーセンタイル（分位数）を計算
+R,rank,ユーザー指定のしきい値でデータを段階的にランク分け
+R,reduce_ex,XをリサンプリングしてXYデータを削減し均等間隔化
+R,reducedup,同じX値を持つXYペアを統合してデータを削減
+R,reducerows,N点ごとにデータをまとめて基本統計値で代表（間引き）
+R,reducexy,Xの分布に基づくサブグループ統計でXYデータを削減
+R,rowquantiles,ワークシート行のパーセンタイル（分位数）を計算
+R,rowstats,データ行の記述統計（平均・標準偏差・最大・最小等）を計算
+S,setdatafmt,ワークシート列のデータフォーマット（数値・テキスト・日付等）を設定
+S,setvalue,ワークシート列に数式または定数値を一括設定（Set Column Values）
+S,sign2 (Pro),対応2標本の符号検定（ノンパラメトリック検定）を実施
+S,signtest (Pro),1標本の符号検定：中央値が指定値と等しいかを検定
+S,smooth,隣接平均・Savitzky-Golay・FFTフィルタ等でXYデータのノイズを除去
+S,sparklines,ワークシート列ヘッダーにサムネイルスパークライングラフを追加・更新
+S,speedmode,グラフレイヤーのスピードモード（大量データ高速描画）プロパティを設定
+S,splitcol,ワークシート列を区切り文字や固定幅で複数列に分割
+S,stats,ワークシート列データの記述統計量（平均・標準偏差・最大/最小等）を計算
+S,stft (Pro),短時間フーリエ変換（STFT）を実行し時間-周波数解析を行う
+S,subtract_line,グラフ上の2点で構成した直線をデータプロットから減算
+S,subtract_ref,別データセットを参照データとして差し引く
+S,swtest,シャピロ・ウィルク法による正規性の検定を実施
+S,sysInfo,Origin のシステム情報（バージョン・OS・メモリ等）を取得
+T,text2cols,テキスト列を区切り文字で複数の列に分割（テキスト→列）
+T,themeApply2g,指定したテーマファイルをグラフ（または複数グラフ）に適用
+T,themeApply2w,指定したテーマファイルをワークシート（または複数ワークシート）に適用
+T,themeEdit,テーマ編集ダイアログを開いて指定テーマファイルを編集
+T,translate,グラフ上のデータカーブを水平・垂直方向に平行移動（トランスレート）
+T,trimright,Y列の右端にある欠損値（Missing Value）を削除
+T,ttest1,標本平均を仮説母集団平均と比較する1標本t検定
+T,ttest2,2つの独立標本の平均を比較する2標本t検定
+T,ttestpair,対応のある2標本の平均差を検定する対応t検定（ペアt検定）
+T,twa (Pro),対応2元配置分散分析（Two-Way ANOVA with Repeated Measures）を実行
+U,updateEmbedGraphs,ワークシートに埋め込まれたグラフオブジェクトを更新
+U,updateSparklines,ワークシート列上部のスパークライン（サムネイルグラフ）を更新・追加
+V,v2m,ベクトル（列データ）をマトリックスに変換
+V,vap2c,振幅ベクトルと位相ベクトルを結合して複素数ベクトルを生成
+V,vartest1 (Pro),標本分散が指定値と等しいかを検定する1標本分散検定
+V,vartest2 (Pro),2標本の分散が等しいかを検定する2標本分散検定（F検定）
+V,vc2ap,複素数ベクトルを振幅ベクトルと位相ベクトルに変換
+V,vc2ri,複素数ベクトルを実部ベクトルと虚部ベクトルに分割
+V,vfind,指定値と等しいベクトル要素を全て検索
+V,vinc,ベクトルの平均増分（平均ステップ幅）を計算
+V,vinc_check,ベクトルが均等増分かどうかを確認し、平均増分を返す
+V,vri2c,実部ベクトルと虚部ベクトルを結合して複素数ベクトルを構築
+V,vshift,ベクトルを指定した量だけシフト（移動）する
+W,w2m,ワークシートデータを直接マトリックスに変換（X・Yマップ座標を最初の行/列またはヘッダーラベルで指定可能）
+W,w2xyz,ワークシートデータをXYZ列形式に変換
+W,wautofill,指定した入力範囲の値に基づいてワークシートセルを自動補完
+W,wautosize,列の最大文字列長に合わせてワークシートの列幅を自動調整
+W,wcellcolor,ワークシートセルの塗りつぶし色またはフォント色を設定
+W,wcellformat,選択したワークシートセルの書式設定（数値形式・桁数など）
+W,wcellmask,ワークシートセルの範囲をマスク・マスク解除
+W,wcellsel,指定した条件でワークシートセルを選択
+W,wclear,ワークシートデータをクリア
+W,wcolwidth,指定した列範囲の列幅を設定
+W,wcopy,指定したワークシートのコピーを作成
+W,wdeldup,参照列の重複に基づいてワークシート行を削除または結合
+W,wdelrows,ワークシートの行を削除
+W,wexpand2m,行または列を展開してワークシートをマトリックスに変換
+W,wkeepdup,1列の重複に基づいてワークシートの重複行を保持
+W,wmergexy,X値を基準に2つのワークシートのXYデータをマージ（Xが一致しない場合は空行を挿入）
+W,wmove_sheet,指定したワークシートを別のワークブックに移動
+W,wmvsn,ワークシートの全列のショートネームをリセット
+W,wpivot,ワークシートデータを集計するピボットテーブルを作成
+W,wproperties,ワークシートプロパティをツリー形式で取得または設定
+W,wrcopy,ワークシートセルの範囲を別の範囲にコピー
+W,wreplace,ワークシートのセル値を検索・置換
+W,wrow2label,ワークシートのデータ行をラベル行に昇格
+W,wrowheight,ワークシートの行の高さを設定
+W,wsort,選択した列を基準にワークシートを並べ替え
+W,wsplit_book,ワークブックを複数のシングルシートワークブックに分割
+W,wtranspose,アクティブなワークシートを転置
+W,wtsmooth (Pro),ウェーブレットの詳細係数をカットオフして信号をスムージング
+W,wunstackcol,グループ列を使用してデータをアンスタック
+W,white_noise,データに白色（ガウス）ノイズを追加
+W,wxt,条件を使用してワークシートデータを抽出
+X,XYZ2Mat,XYZワークシートデータをマトリックスに変換（グリッディング）
+X,XYZ2MatLog,X・Y値の対数を計算してからXYZ2Matと同様にグリッディングを実行
+X,XYZGrid,XYZ等高線プロット/ワークシートXYZデータからグリッディングデータを作成
+X,xyz_regular,等間隔XYデータ用のレギュラーグリッディング
+X,xyz_renka,Renka-Clineグリッディング法（不規則XYデータ用）
+X,xyz_renka_nag,NAG Renka-Clineグリッディング法
+X,xyz_shep,修正Shepardグリッディング法（不規則XYデータ用）
+X,xyz_shep_nag,NAG修正Shepardグリッディング法
+X,xyz_sparse,スパースグリッディング
+X,xyz_tps,薄板スプライン（Thin Plate Spline）補間によるグリッディング
