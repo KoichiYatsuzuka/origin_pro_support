@@ -21,6 +21,9 @@ from .graph_layer import DataPlot, Axis, GraphLayer
 from .enums import (
     XYPlotType,
     ColorMap,
+    OriginColorIndex,
+    ColorSpec,
+    color_to_lt_str,
     GroupMode,
     AxisType,
     ScaleType,
@@ -122,6 +125,9 @@ __all__ = [
     # Enum types
     'XYPlotType',
     'ColorMap',
+    'OriginColorIndex',
+    'ColorSpec',
+    'color_to_lt_str',
     'GroupMode',
     'AxisType',
     'ScaleType',

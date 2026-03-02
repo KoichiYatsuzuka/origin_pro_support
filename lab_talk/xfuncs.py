@@ -63,14 +63,14 @@ def xyplot(
     
     Ref: https://www.originlab.com/doc/ja/X-Function/ref/plotxy
     """
-    if size is not None:
-        seze_str = ""
+    if size is None:
+        size_str = ""
     else:
-        seze_str = f" size:={size}"
+        size_str = f" size:={size}"
 
-    return f"xyplot iy:={iy}"+\
+    return f"plotxy iy:={iy}"+\
         f" plot:={plot} color:={color} ogl:={ogl}"+\
-        f"{seze_str} rescale:={rescale} legend:={legend} hide:={hide}"
+        f"{size_str} rescale:={rescale} legend:={legend} hide:={hide}"
 
 
 def pe_cd(path: str) -> str:

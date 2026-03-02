@@ -525,7 +525,7 @@ class Worksheet(Datasheet[TWorksheet]):
         # Add one column and set the data
         current_cols = self.get_cols()
         self.set_cols(current_cols + 1)
-        new_col = self.Columns(current_cols)
+        new_col = self.columns[current_cols]
         
         # Set column properties
         if lname is not None:
@@ -568,7 +568,7 @@ class Worksheet(Datasheet[TWorksheet]):
         
         new_columns = []
         for i, col_name in enumerate(df.columns):
-            new_col = self.Columns(current_cols + i)
+            new_col = self.columns[current_cols + i]
             
             # Set column properties
             if lname is None:
@@ -616,7 +616,7 @@ class Worksheet(Datasheet[TWorksheet]):
         
         new_columns = []
         for i in range(num_cols):
-            new_col = self.Columns(current_cols + i)
+            new_col = self.columns[current_cols + i]
             
             # Set column properties
             if lname is not None:
@@ -667,7 +667,7 @@ class Worksheet(Datasheet[TWorksheet]):
         
         new_columns = []
         for i in range(num_cols):
-            new_col = self.Columns(current_cols + i)
+            new_col = self.columns[current_cols + i]
             
             # Set column properties
             if lname is not None:

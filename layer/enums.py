@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
+from typing import Union
 
 
 # ================== Data Classes ==================
@@ -65,6 +66,62 @@ class ColorMap(Enum):
     PLASMA = "Plasma"
 
 
+class OriginColorIndex(Enum):
+    """Named color indices from Origin's standard color list (1-24).
+
+    These correspond to Origin's built-in color palette.
+    Ref: https://www.originlab.com/doc/LabTalk/guide/Specifying-Colors
+    """
+    BLACK = 1
+    RED = 2
+    GREEN = 3
+    BLUE = 4
+    CYAN = 5
+    MAGENTA = 6
+    YELLOW = 7
+    DARK_YELLOW = 8
+    NAVY = 9
+    PURPLE = 10
+    WINE = 11
+    OLIVE = 12
+    DARK_CYAN = 13
+    ROYAL = 14
+    ORANGE = 15
+    VIOLET = 16
+    PINK = 17
+    WHITE = 18
+    LIGHT_GRAY = 19
+    GRAY = 20
+    LT_YELLOW = 21
+    LT_CYAN = 22
+    LT_MAGENTA = 23
+    DARK_GRAY = 24
+
+
+# Type alias for color specifications accepted throughout this library.
+# - int: Origin color index (1-24)
+# - tuple[int, int, int]: RGB values (0-255 each)
+# - OriginColorIndex: named color constant
+ColorSpec = Union[int, tuple, 'OriginColorIndex']
+
+
+def color_to_lt_str(color: ColorSpec) -> str:
+    """Convert a ColorSpec to the LabTalk color string used in commands.
+
+    Args:
+        color: int index, (R, G, B) tuple, or OriginColorIndex.
+
+    Returns:
+        str: LabTalk representation, e.g. ``"2"`` or ``"color(240,208,0)"``.
+    """
+    if isinstance(color, OriginColorIndex):
+        return str(color.value)
+    if isinstance(color, tuple):
+        r, g, b = color
+        return f"color({r},{g},{b})"
+    return str(int(color))
+
+
 class GroupMode(Enum):
     """Enumeration for grouping modes."""
     NONE = 0  # No grouping
@@ -114,6 +171,9 @@ __all__ = [
     'XYPlotType',
     # Color and style enums
     'ColorMap',
+    'OriginColorIndex',
+    'ColorSpec',
+    'color_to_lt_str',
     'GroupMode',
     # Axis enums
     'AxisType',

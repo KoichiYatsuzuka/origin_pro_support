@@ -249,28 +249,18 @@ class Folder:
         if self.has_page(name):
             raise OriginNameConflictError(f"A page with name '{name}' already exists in folder '{self.name}'")
         
-        # Use LabTalk command to create graph in this folder
-        # Use __API_core for LabTalk execution
+        # Use LabTalk command to create a new graph page
         cmd = f'newpanel name:="{name}" template:="{template}"'
-        print(f"[DEBUG] Executing LabTalk command: {cmd}")
-        
-        # Execute using __API_core
+        self._core.LT_execute(cmd.strip())
 
-        print("[DEBUG] No __API_core available, trying folder.Execute")
-        self._folder.Execute(cmd.strip())
-        
-        # Get the newly created graph by finding it by name
-        print("[DEBUG] Searching for created graph...")
-        pages = list(self._folder.PageBases())
-        print(f"[DEBUG] Found {len(pages)} pages in folder")
-        for page in pages:
-            print(f"[DEBUG] Page: {page.Name} (LongName: {page.LongName})")
+        # Search all graph pages for the newly created one
+        for page in self._core.GetGraphPages():
             if page.Name == name or page.LongName == name:
-                print(f"[DEBUG] Found matching page: {page.Name}")
                 return GraphPage(page, self._core)
-        
-        print(f"[DEBUG] No page found with name: {name}")
-        return None
+
+        raise OriginPageGenerationError(
+            f"Failed to create graph '{name}'. Command executed but graph not found."
+        )
 
     def create_matrix(self, name: str, template: str = '') -> MatrixPage:
         """
@@ -364,9 +354,9 @@ class Folder:
             WorkbookPage object
         """
 
-        for page in self._folder.GetWorksheetPages():
+        for page in self._core.GetWorksheetPages():
             if page.Name == name or page.LongName == name:
-                return WorkbookPage(page._obj, self._core)
+                return WorkbookPage(page, self._core)
         return None
 
     def find_graph(self, name: str):
@@ -378,7 +368,7 @@ class Folder:
         Returns:
             GraphPage object or None if not found
         """
-        for page in self._folder.GetGraphPages():
+        for page in self._core.GetGraphPages():
             if page.Name == name or page.LongName == name:
                 return GraphPage(page, self._core)
         return None
@@ -392,7 +382,7 @@ class Folder:
         Returns:
             MatrixPage object or None if not found
         """
-        for page in self._folder.GetMatrixPages():
+        for page in self._core.GetMatrixPages():
             if page.Name == name or page.LongName == name:
                 return MatrixPage(page, self._core)
         return None

@@ -9,14 +9,13 @@ from __future__ import annotations
 import sys
 import os
 from enum import Enum
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .pages import WorkbookPage, GraphPage, MatrixPage, NotePage
 
 from .folder import Folder
 from .layer.enums import XYPlotType
-from typing import TYPE_CHECKING
 from .base import (
     APP,
     OriginNotFoundError,
@@ -353,14 +352,14 @@ class OriginInstance:
         """
         return self.get_root_dir().find_workbook(name)
 
-    def new_workbook(self, name: str, template: str = 'Origin') -> Optional['WorkbookPage']:
+    def new_workbook(self, name: str, template: str = '') -> Optional['WorkbookPage']:
         """
         Create a new workbook page in the root folder.
         Delegates to root folder.
 
         Args:
             name: Name for the workbook (required)
-            template: Optional template name
+            template: Optional template name. The default is empty sheet. 'Origin' is the default template in GUI.
         Returns:
             WorkbookPage: The created workbook page object, or None if creation failed
         

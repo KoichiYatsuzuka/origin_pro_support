@@ -15,7 +15,7 @@ from typing import Optional, Union, TYPE_CHECKING, List
 from collections.abc import Iterator
 
 from ..base import OriginObjectWrapper
-from .enums import ColorMap, AxisType, XYPlotType, GroupMode
+from .enums import ColorMap, AxisType, XYPlotType, GroupMode, OriginColorIndex, ColorSpec, color_to_lt_str
 from .worksheet import Worksheet
 
 from ..base import APP
@@ -34,19 +34,25 @@ class DataPlot:
     Corresponds to: originpro.DataPlot, OriginExt.OriginExt.DataPlot
     """
 
-    def __init__(self, plot, api_core: 'APP'):
+    def __init__(self, plot, api_core: 'APP',
+                 page_name: Optional[str] = None,
+                 layer_index: Optional[int] = None):
         """
         Initialize DataPlot wrapper with hierarchical references.
 
         Args:
             plot: Original OriginExt.DataPlot instance to wrap or plot index
             api_core: APP instance reference for LabTalk access
+            page_name: Short name of the parent graph page (enables layer activation)
+            layer_index: 0-based index of the parent graph layer
         """
         if plot is None:
             raise ValueError("DataPlot cannot be created with None plot object")
         self._plot = plot
         self.__API_core = api_core
         self._is_index = isinstance(plot, int)
+        self._page_name = page_name
+        self._layer_index = layer_index
 
 
     @property
@@ -81,6 +87,61 @@ class DataPlot:
             return None
         worksheet_obj = oext.DataPlot_GetWorksheet(self._plot)
         return Worksheet(worksheet_obj, self.api_core)
+
+    def _plot_range(self) -> Optional[str]:
+        """Return the LabTalk range string for this plot, e.g. ``[Graph1]1!(1)``.
+
+        Returns None when the page/layer context is unavailable.
+        """
+        if self._page_name is not None and self._layer_index is not None:
+            # Range notation: [PageName]LayerIndex(1-based)!(PlotIndex(1-based))
+            return f"[{self._page_name}]{self._layer_index + 1}!({self._plot + 1})"
+        return None
+
+    @property
+    def color(self) -> int:
+        """Line/symbol color as an Origin color value.
+
+        Reads the plot color via ``layer.plot(n).color`` in LabTalk after
+        activating the parent graph layer.  For index colors (1-24) the
+        returned integer matches ``OriginColorIndex``.  For custom RGB
+        colors the returned value is the Windows COLORREF integer
+        (R + G*256 + B*65536).
+
+        Note: Colors applied at plot-creation time (via ``add_xy_plot``'s
+        *color* argument) are stored in the group's style and may only be
+        readable after ungrouping the plots first
+        (``layer.group_plots(GroupMode.NONE)``).
+        Setting accepts an int, (R,G,B) tuple, or ``OriginColorIndex``.
+        """
+        if self._page_name is None or self._layer_index is None:
+            return 0
+        self.api_core.LT_execute(f"win -a {self._page_name}")
+        self.api_core.LT_execute(f"layer {self._layer_index + 1}")
+        self.api_core.LT_execute(
+            f"colorTmpVal = layer.plot({self._plot + 1}).color"
+        )
+        raw = self.api_core.LT_get_var("colorTmpVal")
+        import math
+        if math.isnan(raw):
+            return 0
+        return int(raw)
+
+    @color.setter
+    def color(self, value: ColorSpec) -> None:
+        """Set the plot color.
+
+        Activates the parent graph layer then assigns the color via
+        ``layer.plot(n).color``.  Works reliably after ungrouping
+        (``layer.group_plots(GroupMode.NONE)``).
+        """
+        color_str = color_to_lt_str(value)
+        if self._page_name is not None and self._layer_index is not None:
+            self.api_core.LT_execute(f"win -a {self._page_name}")
+            self.api_core.LT_execute(f"layer {self._layer_index + 1}")
+        self.api_core.LT_execute(
+            f"layer.plot({self._plot + 1}).color = {color_str}"
+        )
 
     @property
     def color_map(self) -> ColorMap:
@@ -314,8 +375,9 @@ class GraphLayer(OriginObjectWrapper[oext_types.GraphLayer]):
         cmd = f"layer -a {axis_letter}"
         self.api_core.LT_execute(cmd)
 
-    def add_xy_plot(self, worksheet: Worksheet, x_col: int, y_col: int, 
-                   plot_type: XYPlotType) -> DataPlot:
+    def add_xy_plot(self, worksheet: Worksheet, x_col: int, y_col: int,
+                   plot_type: XYPlotType,
+                   color: Optional[ColorSpec] = None) -> DataPlot:
         """
         Add an XY plot to this layer.
 
@@ -324,11 +386,14 @@ class GraphLayer(OriginObjectWrapper[oext_types.GraphLayer]):
             x_col: X column index (0-based)
             y_col: Y column index (0-based) or -1 for all columns after x_col
             plot_type: XYPlotType enum (defaults to LINE_SYMBOL)
+            color: Plot color. Accepts an int (Origin color index 1-24),
+                   an (R, G, B) tuple, or an OriginColorIndex constant.
+                   When omitted, Origin uses the template default.
 
         Returns:
             DataPlot: The created data plot
         """
-        
+
         # Get fullname using worksheet's page name
         book_name = worksheet._obj.GetPage().GetName()
         worksheet_full_name = f"[{book_name}]{worksheet.name}"
@@ -344,38 +409,38 @@ class GraphLayer(OriginObjectWrapper[oext_types.GraphLayer]):
             except:
                 # Final fallback: use a generic name
                 parent_page_name = "Graph1"
-        
+
         layer_name = f"Layer{self._id + 1}"
         graph_full_name = f"[{parent_page_name}]{layer_name}"
 
-        # Create the plot using LabTalk
-            # Plot specific X and Y columns
-        cmd = \
-            f"plotxy iy:={worksheet_full_name}!({x_col+1},{y_col+1}) "+\
-            f"plot:={plot_type.value.plot_id} "+\
+        # Build the plotxy LabTalk command
+        color_str = f" color:={color_to_lt_str(color)}" if color is not None else ""
+        cmd = (
+            f"plotxy iy:={worksheet_full_name}!({x_col+1},{y_col+1}) "
+            f"plot:={plot_type.value.plot_id}"
+            f"{color_str} "
             f"ogl:={graph_full_name}!"
-        
+        )
+
         print(f"[DEBUG] Executing plot command: {cmd}")
-        
+
         # Use API core for LabTalk execution
         self.api_core.LT_execute(cmd)
-        
+
         print("[DEBUG] Plot command executed successfully")
-        
-        # Force layer refresh after plot creation
-        self.api_core.LT_execute("layer -u")
-        
-        # Since we can't access the plot object directly through OriginExt,
-        # we'll create a DataPlot with a reference to the layer and index
-        # The actual plot object can be accessed through LabTalk when needed
-        self.api_core.LT_execute("plot_index = layer.plot.count - 1")
-        
-        # Use LT_get_var to get the variable value
-        plot_index = self.api_core.LT_get_var("plot_index")
-        print(f"[DEBUG] Plot index: {plot_index}")
-        
-        # Create a DataPlot with layer reference and index
-        return DataPlot(int(plot_index), self.api_core)
+
+        # Activate the target graph layer so that LabTalk's 'layer' object
+        # points to it before querying the plot count.
+        self.api_core.LT_execute(f"win -a {parent_page_name}")
+        self.api_core.LT_execute(f"layer {self._id + 1}")
+        self.api_core.LT_execute("layer -c")  # stores count in 'count' variable
+        plot_count = self.api_core.LT_get_var("count")
+        plot_index = int(plot_count) - 1
+        print(f"[DEBUG] Plot count: {plot_count}, plot index: {plot_index}")
+
+        return DataPlot(plot_index, self.api_core,
+                        page_name=parent_page_name,
+                        layer_index=self._id)
 
     def group_plots(self, group_mode: Optional[GroupMode] = None) -> None:
         """
