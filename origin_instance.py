@@ -11,8 +11,12 @@ import os
 from enum import Enum
 from typing import Optional
 
+if TYPE_CHECKING:
+    from .pages import WorkbookPage, GraphPage, MatrixPage, NotePage
+
 from .folder import Folder
 from .layer.enums import XYPlotType
+from typing import TYPE_CHECKING
 from .base import (
     APP,
     OriginNotFoundError,
@@ -337,7 +341,7 @@ class OriginInstance:
         """
         return self.get_root_dir().get_pages_by_type('w')
 
-    def find_book(self, name: str) -> Optional:
+    def find_book(self, name: str) -> Optional['WorkbookPage']:
         """
         Find a workbook by name (short name or long name).
         Delegates to root folder.
@@ -345,11 +349,11 @@ class OriginInstance:
         Args:
             name: Name of the workbook to find
         Returns:
-            Workbook page object or None if not found
+            WorkbookPage: Workbook page object or None if not found
         """
         return self.get_root_dir().find_workbook(name)
 
-    def new_workbook(self, name: str, template: str = 'Origin') -> Optional:
+    def new_workbook(self, name: str, template: str = 'Origin') -> Optional['WorkbookPage']:
         """
         Create a new workbook page in the root folder.
         Delegates to root folder.
@@ -358,7 +362,7 @@ class OriginInstance:
             name: Name for the workbook (required)
             template: Optional template name
         Returns:
-            The created workbook page object, or None if creation failed
+            WorkbookPage: The created workbook page object, or None if creation failed
         
         Raises:
             OriginNameConflictError: If a page with the same name already exists
@@ -394,7 +398,7 @@ class OriginInstance:
     #             return WorkbookPage(page)
     #     return None
 
-    def new_matrixbook(self, name: str, template: str = '') -> Optional:
+    def new_matrixbook(self, name: str, template: str = '') -> Optional['MatrixPage']:
         """
         Create a new matrix book page in the root folder.
         Delegates to root folder.
@@ -403,7 +407,7 @@ class OriginInstance:
             name: Name for the matrix book (required)
             template: Optional template name
         Returns:
-            The created matrix book page object, or None if creation failed
+            MatrixPage: The created matrix book page object, or None if creation failed
         
         Raises:
             OriginNameConflictError: If a page with the same name already exists
@@ -422,7 +426,7 @@ class OriginInstance:
         """
         return self.get_root_dir().get_pages_by_type('g')
 
-    def find_graph(self, name: str) -> Optional:
+    def find_graph(self, name: str) -> Optional['GraphPage']:
         """
         Find a graph page by name (short name or long name).
         Delegates to root folder.
@@ -430,11 +434,11 @@ class OriginInstance:
         Args:
             name: Name of the graph to find
         Returns:
-            Graph page object or None if not found
+            GraphPage: Graph page object or None if not found
         """
         return self.get_root_dir().find_graph(name)
 
-    def new_graph(self, name: str, template: XYPlotType) -> Optional:
+    def new_graph(self, name: str, template: XYPlotType) -> Optional['GraphPage']:
         """
         Create a new graph page in the root folder.
         Delegates to root folder.
@@ -443,7 +447,7 @@ class OriginInstance:
             name: Name for the graph (required)
             template: XY template enum (default: XYPlotType.LINE)
         Returns:
-            The created graph page object
+            GraphPage: The created graph page object or None if creation failed
         
         Raises:
             OriginNameConflictError: If a page with the same name already exists
@@ -473,7 +477,7 @@ class OriginInstance:
         """
         return self.get_root_dir().get_pages_by_type('m')
 
-    def find_matrix(self, name: str) -> Optional:
+    def find_matrix(self, name: str) -> Optional['MatrixPage']:
         """
         Find a matrix book by name (short name or long name).
         Delegates to root folder.
@@ -481,7 +485,7 @@ class OriginInstance:
         Args:
             name: Name of the matrix to find
         Returns:
-            Matrix page object or None if not found
+            MatrixPage: Matrix page object or None if not found
         """
         return self.get_root_dir().find_matrix(name)
 
@@ -497,7 +501,7 @@ class OriginInstance:
         """
         return self.get_root_dir().get_pages_by_type('n')
 
-    def new_notes(self, name: str) -> Optional:
+    def new_notes(self, name: str) -> Optional['NotePage']:
         """
         Create a new notes page in the root folder.
         Delegates to root folder.
@@ -505,7 +509,7 @@ class OriginInstance:
         Args:
             name: Name for the notes window (required)
         Returns:
-            The created notes page object
+            NotePage: The created notes page object or None if creation failed
         
         Raises:
             OriginNameConflictError: If a page with the same name already exists

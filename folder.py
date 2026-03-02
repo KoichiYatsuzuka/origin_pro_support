@@ -9,7 +9,7 @@ import OriginExt.OriginExt as oext_types
 
 from typing import Iterator, Optional, TYPE_CHECKING
 
-from .base import OriginObjectWrapper, OriginNameConflictError, OriginPageGenerationError
+from .base import APP, OriginObjectWrapper, OriginNameConflictError, OriginPageGenerationError
 from .pages import PageBase, WorkbookPage, GraphPage, MatrixPage, NotePage
 
 if TYPE_CHECKING:
@@ -27,12 +27,13 @@ class Folder:
 
     _folder: oext_types.Folder
 
-    def __init__(self, folder: oext_types.Folder, core: oext_types.Application):
+    def __init__(self, folder: oext_types.Folder, core: APP):
         """
         Initialize Folder wrapper.
 
         Args:
             folder: Original OriginExt.Folder instance to wrap
+            core: APP instance reference for LabTalk access
         """
         self._folder = folder
         self._core = core
@@ -45,12 +46,12 @@ class Folder:
     @property
     def parent(self) -> Folder:
         """Parent folder"""
-        return Folder(self._folder.Parent)
+        return Folder(self._folder.Parent, self._core)
 
     @property
-    def folders(self):
+    def folders(self) -> list[Folder]:
         """Collection of subfolders"""
-        return self._folder.Folders
+        return [Folder(f, self._core) for f in self._folder.Folders]
 
     def __iter__(self) -> Iterator[PageBase]:
         """Iterate over pages in this folder"""
@@ -66,7 +67,7 @@ class Folder:
         Returns:
             list[Folder]: List of subfolders
         """
-        return [Folder(f) for f in self._folder.GetFolders()]
+        return [Folder(f, self._core) for f in self._folder.GetFolders()]
 
     def get_path(self) -> str:
         """
@@ -116,7 +117,7 @@ class Folder:
         parent = self._folder.GetParent()
         if parent is oext_types.ApplicationBase:
             return None
-        return Folder(parent)
+        return Folder(parent, self._core)
 
     def result_text(self, recursive: bool = False) -> str:
         """
@@ -254,12 +255,9 @@ class Folder:
         print(f"[DEBUG] Executing LabTalk command: {cmd}")
         
         # Execute using __API_core
-        if self._core:
-            self._core.LT_execute(cmd.strip())
-            print("[DEBUG] LabTalk command executed via __API_core.LT_execute")
-        else:
-            print("[DEBUG] No __API_core available, trying folder.Execute")
-            self._folder.Execute(cmd.strip())
+
+        print("[DEBUG] No __API_core available, trying folder.Execute")
+        self._folder.Execute(cmd.strip())
         
         # Get the newly created graph by finding it by name
         print("[DEBUG] Searching for created graph...")

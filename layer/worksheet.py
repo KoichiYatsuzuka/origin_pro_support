@@ -76,13 +76,13 @@ class ColumnCollection:
     Wrapper for Origin column collection that returns wrapped Column objects.
     """
     
-    def __init__(self, columns_collection, api_core: Optional['APP'] = None):
+    def __init__(self, columns_collection, api_core: 'APP'):
         self._columns = columns_collection
         self.__API_core = api_core
     
     def __getitem__(self, index: int) -> 'Column':
         """Get column by index"""
-        return Column(self._columns[index], None, self.__API_core)
+        return Column(self._columns[index], self.__API_core)
     
     def __len__(self) -> int:
         """Get number of columns"""
@@ -91,7 +91,7 @@ class ColumnCollection:
     def __iter__(self):
         """Iterate over columns, yielding wrapped Column objects"""
         for col in self._columns:
-            yield Column(col, None, self.__API_core)
+            yield Column(col, self.__API_core)
 
 
 # ================== Column Class ==================
@@ -104,7 +104,7 @@ class Column(OriginObjectWrapper[TColumn]):
     Corresponds to: originpro.Column, OriginExt.OriginExt.Column
     """
 
-    def __init__(self, column: TColumn, api_core: Optional['APP'] = None):
+    def __init__(self, column: TColumn, api_core: 'APP'):
         """
         Initialize Column wrapper with hierarchical references.
 

@@ -110,7 +110,7 @@ class OriginObjectWrapper(Generic[TOriginObject]):
     Corresponds to: OriginExt.OriginExt.OriginObject, OriginExt.OriginExt.OriginBase
     """
 
-    def __init__(self, obj: TOriginObject, api_core: Optional['APP'] = None):
+    def __init__(self, obj: TOriginObject, api_core: 'APP'):
         """
         Initialize the wrapper with OriginExt object and API core reference.
 
@@ -122,16 +122,16 @@ class OriginObjectWrapper(Generic[TOriginObject]):
         self.__API_core = api_core
 
     @property
-    def api_core(self) -> Optional['APP']:
+    def api_core(self) -> 'APP':
         """Get the API core reference"""
         return self.__API_core
 
-    def get_origin_instance(self) -> Optional['APP']:
+    def get_origin_instance(self) -> 'APP':
         """
         Get the API core reference.
         
         Returns:
-            APP: The API core or None if not found
+            APP: The API core
         """
         return self.__API_core
 

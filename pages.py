@@ -44,7 +44,7 @@ class PageBase(OriginObjectWrapper[TPageBase]):
     Corresponds to: originpro.PageBase, OriginExt.OriginExt.PageBase
     """
 
-    def __init__(self, page: TPageBase, api_core: Optional['APP'] = None):
+    def __init__(self, page: TPageBase, api_core: 'APP'):
         """
         Initialize PageBase wrapper with hierarchical references.
 
@@ -80,7 +80,7 @@ class Page(PageBase[TPage]):
     Corresponds to: OriginExt.OriginExt.Page
     """
 
-    def __init__(self, page: TPage, api_core: Optional['APP'] = None):
+    def __init__(self, page: TPage, api_core: 'APP'):
         """
         Initialize Page wrapper with hierarchical references.
 
@@ -90,18 +90,18 @@ class Page(PageBase[TPage]):
         """
         super().__init__(page, api_core)
 
-    @property
-    def layers(self):
-        """Collection of layers in this page"""
-        return self._obj.Layers
+    # @property
+    # def layers(self)->list[Layer]:
+    #     """Collection of layers in this page"""
+    #     return self.get_layers()
 
-    def __iter__(self) -> Iterator[Layer]:
-        """Iterate over layers"""
-        return iter(self._obj)
+    # def __iter__(self) -> Iterator[Layer]:
+    #     """Iterate over layers"""
+    #     return iter(self._obj)
 
-    def __getitem__(self, index: int) -> Layer:
-        """Get layer by index"""
-        return Layer(self._obj[index], self, self.api_core)
+    # def __getitem__(self, index: int) -> Layer:
+    #     """Get layer by index"""
+    #     return Layer(self._obj[index], self, self.api_core)
 
     def __len__(self) -> int:
         """Get number of layers"""
@@ -155,7 +155,7 @@ class WorkbookPage(Page[oext_types.WorksheetPage]):
     Corresponds to: originpro.WBook, OriginExt.OriginExt.WorksheetPage
     """
 
-    def __init__(self, page: oext_types.WorksheetPage, api_core: Optional['APP'] = None):
+    def __init__(self, page: oext_types.WorksheetPage, api_core: 'APP'):
         """
         Initialize WorkbookPage wrapper with hierarchical references.
 
@@ -165,14 +165,14 @@ class WorkbookPage(Page[oext_types.WorksheetPage]):
         """
         super().__init__(page, api_core)
 
-    def __iter__(self) -> Iterator[Worksheet]:
-        """Iterate over worksheets"""
-        for layer in self._obj:
-            yield Worksheet(layer, self.api_core)
+    # def __iter__(self) -> Iterator[Worksheet]:
+    #     """Iterate over worksheets"""
+    #     for layer in self._obj:
+    #         yield Worksheet(layer, self.api_core)
 
-    def __getitem__(self, index: int) -> Worksheet:
-        """Get worksheet by index"""
-        return Worksheet(self._obj[index], self.api_core)
+    # def __getitem__(self, index: int) -> Worksheet:
+    #     """Get worksheet by index"""
+    #     return Worksheet(self._obj[index], self.api_core)
 
     def get_layers(self) -> list[Worksheet]:
         """
@@ -200,7 +200,7 @@ class WorkbookPage(Page[oext_types.WorksheetPage]):
         return Worksheet(self._obj.GetLayer(index), self.api_core)
 
     @overload
-    def add_worksheet(self, name: str = '') -> 'Worksheet': ...
+    def add_worksheet(self, name: str) -> 'Worksheet': ...
     
     @overload
     def add_worksheet(self, name: str, data: List, lname: Optional[str] = None, 
@@ -222,14 +222,14 @@ class WorkbookPage(Page[oext_types.WorksheetPage]):
                      units: Optional[str] = None, comments: Optional[str] = None, 
                      axis: Optional[str] = None) -> 'Worksheet': ...
 
-    def add_worksheet(self, name: str = '', data=None, lname: Optional[str] = None, 
+    def add_worksheet(self, name: str, data=None, lname: Optional[str] = None, 
                      units: Optional[str] = None, comments: Optional[str] = None, 
                      axis: Optional[str] = None):
         """
         Add a new worksheet to this workbook.
         
         Args:
-            name: Optional name for the new worksheet
+            name: Name for the new worksheet
             data: Optional data to initialize the worksheet (list, np.ndarray, pd.Series, or pd.DataFrame)
             lname: Optional long name for columns (when data is provided)
             units: Optional units for columns (when data is provided)
@@ -283,7 +283,7 @@ class GraphPage(Page[oext_types.GraphPage]):
     Corresponds to: originpro.GPage, OriginExt.OriginExt.GraphPage
     """
 
-    def __init__(self, page: oext_types.GraphPage, api_core: Optional['APP'] = None):
+    def __init__(self, page: oext_types.GraphPage, api_core: 'APP'):
         """
         Initialize GraphPage wrapper with hierarchical references.
 
@@ -369,12 +369,12 @@ class GraphPage(Page[oext_types.GraphPage]):
         else:
             raise RuntimeError("No API core available for LabTalk execution")
 
-    def add_graph_layer(self, name: str = '') -> GraphLayer:
+    def add_graph_layer(self, name: str) -> GraphLayer:
         """
         Add a new graph layer to this page.
 
         Args:
-            name: Optional name for the new layer
+            name: Name for the new layer
 
         Returns:
             GraphLayer: The newly created layer

@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "WebFetch(domain:www.originlab.com)"
+      "WebFetch(domain:www.originlab.com)",
+      "Bash(python:*)"
     ]
   }
 }

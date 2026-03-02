@@ -34,7 +34,7 @@ class DataPlot:
     Corresponds to: originpro.DataPlot, OriginExt.OriginExt.DataPlot
     """
 
-    def __init__(self, plot, api_core: Optional['APP'] = None):
+    def __init__(self, plot, api_core: 'APP'):
         """
         Initialize DataPlot wrapper with hierarchical references.
 
@@ -50,7 +50,7 @@ class DataPlot:
 
 
     @property
-    def api_core(self) -> APP:
+    def api_core(self) -> 'APP':
         """Get the API core reference"""
         return self.__API_core
 

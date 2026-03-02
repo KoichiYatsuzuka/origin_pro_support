@@ -26,9 +26,7 @@ from .enums import (
     ScaleType,
     TickType,
 )
-
-if TYPE_CHECKING:
-    pass
+from base import APP
 
 
 # ================== Type Variables ==================
@@ -48,7 +46,7 @@ class Layer(OriginObjectWrapper[TLayer]):
     Corresponds to: originpro.DSheet / originpro.GLayer, OriginExt.OriginExt.Layer
     """
 
-    def __init__(self, layer: TLayer, api_core: Optional['APP'] = None):
+    def __init__(self, layer: TLayer, api_core: 'APP'):
         """
         Initialize Layer wrapper with hierarchical references.
 
