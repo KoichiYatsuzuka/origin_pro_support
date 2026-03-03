@@ -162,6 +162,20 @@ class TickType(Enum):
     IN_OUT = 3
 
 
+# ================== Legend Enums ==================
+
+class LegendLayout(Enum):
+    """Enumeration for legend entry arrangement.
+
+    Controls whether legend entries are stacked vertically (one per row)
+    or arranged horizontally (all in one row).
+
+    Ref: https://www.originlab.com/doc/LabTalk/ref/Legend-cmd
+    """
+    VERTICAL = "av"
+    HORIZONTAL = "ah"
+
+
 # ================== Export ==================
 
 __all__ = [
@@ -179,4 +193,6 @@ __all__ = [
     'AxisType',
     'ScaleType',
     'TickType',
+    # Legend enums
+    'LegendLayout',
 ]

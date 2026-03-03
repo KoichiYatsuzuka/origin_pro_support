@@ -17,7 +17,7 @@ from ..base import OriginObjectWrapper
 
 # Import from submodules
 from .worksheet import Column, Worksheet, Datasheet
-from .graph_layer import DataPlot, Axis, GraphLayer
+from .graph_layer import DataPlot, Axis, GraphLayer, Legend
 from .enums import (
     XYPlotType,
     ColorMap,
@@ -28,6 +28,7 @@ from .enums import (
     AxisType,
     ScaleType,
     TickType,
+    LegendLayout,
 )
 from base import APP
 
@@ -120,6 +121,7 @@ __all__ = [
     'DataPlot',
     'Axis',
     'GraphLayer',
+    'Legend',
     # Matrix classes
     'Matrixsheet',
     # Enum types
@@ -132,4 +134,5 @@ __all__ = [
     'AxisType',
     'ScaleType',
     'TickType',
+    'LegendLayout',
 ]

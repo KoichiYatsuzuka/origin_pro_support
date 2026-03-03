@@ -419,279 +419,301 @@ class Worksheet(Datasheet[TWorksheet]):
         
         return
     @overload
-    def add_column_from_data(self, data: List, lname: Optional[str] = None, 
-                           units: Optional[str] = None, comments: Optional[str] = None, 
+    def add_column_from_data(self, data: List, lname: Optional[str] = None,
+                           units: Optional[str] = None, comments: Optional[str] = None,
                            axis: Optional[str] = None) -> 'Column': ...
-    
+
     @overload
-    def add_column_from_data(self, data: pd.Series, lname: Optional[str] = None, 
-                           units: Optional[str] = None, comments: Optional[str] = None, 
+    def add_column_from_data(self, data: pd.Series, lname: Optional[str] = None,
+                           units: Optional[str] = None, comments: Optional[str] = None,
                            axis: Optional[str] = None) -> 'Column': ...
-    
+
     @overload
-    def add_column_from_data(self, data: np.ndarray, lname: Optional[str] = None, 
-                           units: Optional[str] = None, comments: Optional[str] = None, 
-                           axis: Optional[str] = None) -> Union['Column', List['Column']]: ...
-    
-    @overload
-    def add_column_from_data(self, data: pd.DataFrame, lname: Optional[str] = None, 
-                           units: Optional[str] = None, comments: Optional[str] = None, 
+    def add_column_from_data(self, data: np.ndarray, lname: Optional[List[str]] = None,
+                           units: Optional[str] = None, comments: Optional[str] = None,
                            axis: Optional[str] = None) -> Union['Column', List['Column']]: ...
 
-    def add_column_from_data(self, data, lname: Optional[str] = None, 
-                           units: Optional[str] = None, comments: Optional[str] = None, 
+    @overload
+    def add_column_from_data(self, data: pd.DataFrame, lname: Optional[List[str]] = None,
+                           units: Optional[str] = None, comments: Optional[str] = None,
+                           axis: Optional[str] = None) -> Union['Column', List['Column']]: ...
+
+    def add_column_from_data(self, data, lname=None,
+                           units: Optional[str] = None, comments: Optional[str] = None,
                            axis: Optional[str] = None):
         """
         Add a new column to the worksheet from various data types.
-        Overloaded based on data type and dimension.
-        
+
+        lname behaviour by data type:
+
+        * 1-D ``list`` / 1-D ``np.ndarray``:
+            ``Optional[str]``.  When *None* a serial long name ``list_1``,
+            ``list_2``, … is generated automatically (continuing from the
+            highest existing ``list_N`` in the current worksheet).
+
+        * 2-D ``list`` / 2-D ``np.ndarray``:
+            ``Optional[list[str]]``.  When *None* each new column receives an
+            auto-generated ``list_N`` name.  When a ``list[str]`` is supplied
+            its length must equal the number of columns (axis-1 size);
+            a ``ValueError`` is raised otherwise.
+
+        * ``pd.Series``:
+            *lname* is **ignored**; the series' ``.name`` attribute is used as
+            the column long name (auto-generated if ``.name`` is *None*).
+            A warning is printed when a non-None *lname* is supplied.
+
+        * ``pd.DataFrame``:
+            *lname* is **ignored**; each DataFrame column's name is used.
+            A warning is printed when a non-None *lname* is supplied.
+
         Args:
             data: Input data (list, np.ndarray, pd.Series, or pd.DataFrame)
-            lname: Optional long name for the column
-            units: Optional units for the column
-            comments: Optional comments for the column
+            lname: Long name(s) — see above for type and semantics per data type.
+            units: Optional units for the column(s)
+            comments: Optional comments for the column(s)
             axis: Optional axis designation ('X', 'Y', 'Z', 'E', etc.)
-            
+
         Returns:
-            Column: The newly created column (or list of columns for 2D data)
-            
+            Column or List[Column]: The newly created column(s)
+
         Raises:
-            ValueError: If data type or dimension is not supported
+            TypeError: If data is an unsupported type.
+            ValueError: If data is 3-D+, or if lname length mismatches column count.
         """
-        
-        # Early type validation
+
         if not isinstance(data, (list, pd.DataFrame, pd.Series, np.ndarray)):
-            raise TypeError(f"Unsupported data type: {type(data)}. Supported types: list, numpy.ndarray, pandas.Series, pandas.DataFrame")
-        
-        # Handle 1D data with step-by-step type checking
-        # Check for pd.Series first
+            raise TypeError(
+                f"Unsupported data type: {type(data)}. "
+                "Supported types: list, numpy.ndarray, pandas.Series, pandas.DataFrame"
+            )
+
+        # ── pd.Series ──────────────────────────────────────────────────────
         if isinstance(data, pd.Series):
-            data_list = data.tolist()
-            return self._add_column_from_1d_data(data_list, lname, units, comments, axis)
-        
-        # Check for np.ndarray
-        elif isinstance(data, np.ndarray):
+            if lname is not None:
+                print(
+                    "Warning: lname is ignored for pd.Series; "
+                    "the series .name attribute is used instead."
+                )
+            series_name = str(data.name) if data.name is not None else None
+            return self._add_column_from_1d_data(data.tolist(), series_name, units, comments, axis)
+
+        # ── pd.DataFrame ───────────────────────────────────────────────────
+        if isinstance(data, pd.DataFrame):
+            if lname is not None:
+                print(
+                    "Warning: lname is ignored for pd.DataFrame; "
+                    "the DataFrame column names are used instead."
+                )
+            return self._add_column_from_dataframe(data, units, comments, axis)
+
+        # ── 1-D np.ndarray ─────────────────────────────────────────────────
+        if isinstance(data, np.ndarray):
             if data.ndim == 1:
-                data_list = data.tolist()
-                return self._add_column_from_1d_data(data_list, lname, units, comments, axis)
+                return self._add_column_from_1d_data(data.tolist(), lname, units, comments, axis)
+            elif data.ndim == 2:
+                return self._add_column_from_2d_array(data, lname, units, comments, axis)
             else:
-                # 2D+ array will be handled in 2D section
-                pass
-        
-        # Check for list
-        elif isinstance(data, list):
-            # Check if it's 1D list (not nested) and contains valid types
+                raise ValueError("numpy.ndarray must be 1-D or 2-D.")
+
+        # ── list ───────────────────────────────────────────────────────────
+        if isinstance(data, list):
             if not data or not isinstance(data[0], list):
-                # Validate element types
+                # 1-D list
                 valid_types = (int, float, str)
                 if any(not isinstance(item, valid_types) for item in data if item is not None):
-                    raise ValueError("List elements must be int, float, or str")
+                    raise ValueError("1-D list elements must be int, float, or str.")
                 return self._add_column_from_1d_data(data, lname, units, comments, axis)
             else:
-                # 2D list will be handled in 2D section
-                pass
-            
-        # Handle 2D data with function calls
-        if isinstance(data, pd.DataFrame):
-            return self._add_column_from_dataframe(data, lname, units, comments, axis)
-        
-        elif isinstance(data, np.ndarray) and data.ndim == 2:
-            return self._add_column_from_2d_array(data, lname, units, comments, axis)
-        
-        elif isinstance(data, list) and data and isinstance(data[0], list):
-            # Validate that it's truly 2D (not 3D+)
-            if data[0] and isinstance(data[0][0], list):
-                raise ValueError("3D or higher nested lists are not supported. Use 2D list, numpy.ndarray, pandas.Series, or pandas.DataFrame")
-            return self._add_column_from_2d_list(data, lname, units, comments, axis)
-        
-        else:
-            raise ValueError(f"Unsupported data format: {type(data)}. Expected 1D/2D list, numpy.ndarray, pandas.Series, or pandas.DataFrame")
-    def _add_column_from_1d_data(self, data_list: list, lname: Optional[str] = None, 
-                                units: Optional[str] = None, comments: Optional[str] = None, 
+                # 2-D list
+                if data[0] and isinstance(data[0][0], list):
+                    raise ValueError(
+                        "3-D or deeper nested lists are not supported. "
+                        "Use a 2-D list, numpy.ndarray, pd.Series, or pd.DataFrame."
+                    )
+                return self._add_column_from_2d_list(data, lname, units, comments, axis)
+
+        raise ValueError(
+            f"Unsupported data format: {type(data)}. "
+            "Expected 1-D/2-D list, numpy.ndarray, pd.Series, or pd.DataFrame."
+        )
+    def _get_next_list_number(self) -> int:
+        """Return the next available serial number for auto-generated 'list_N' long names.
+
+        Scans all existing columns for long names that match the pattern ``list_<integer>``,
+        finds the maximum N, and returns N+1 (or 1 if none are found).
+        """
+        import re
+        pattern = re.compile(r'^list_(\d+)$')
+        max_n = 0
+        for col in self._obj.GetColumns():
+            m = pattern.match(col.LongName)
+            if m:
+                n = int(m.group(1))
+                if n > max_n:
+                    max_n = n
+        return max_n + 1
+
+    def _set_axis_type(self, col: 'Column', axis: Optional[str]) -> None:
+        """Apply axis designation to a column (shared helper)."""
+        if axis is None:
+            return
+        axis_map = {'X': 1, 'Y': 2, 'Z': 3, 'E': 4}
+        if isinstance(axis, str) and axis.upper() in axis_map:
+            col.type = axis_map[axis.upper()]
+        elif isinstance(axis, int):
+            col.type = axis
+
+    def _add_column_from_1d_data(self, data_list: list, lname: Optional[str] = None,
+                                units: Optional[str] = None, comments: Optional[str] = None,
                                 axis: Optional[str] = None) -> 'Column':
-        """
-        Add a single column from 1D list data.
-        
+        """Add a single column from 1-D list data.
+
         Args:
-            data_list: 1D list of data
-            lname: Optional long name for the column
-            units: Optional units for the column
-            comments: Optional comments for the column
-            axis: Optional axis designation ('X', 'Y', 'Z', 'E', etc.)
-            
+            data_list: 1-D list of values.
+            lname: Long name.  When *None* an auto-generated ``list_N`` name is used.
+            units: Optional units.
+            comments: Optional comments.
+            axis: Optional axis designation ('X', 'Y', 'Z', 'E', …).
+
         Returns:
-            Column: The newly created column
+            Column: The newly created column.
         """
-        # Add one column and set the data
         current_cols = self.get_cols()
         self.set_cols(current_cols + 1)
         new_col = self.columns[current_cols]
-        
-        # Set column properties
-        if lname is not None:
-            new_col.LongName = lname
+
+        effective_lname = lname if lname is not None else f"list_{self._get_next_list_number()}"
+        new_col.long_name = effective_lname
         if units is not None:
-            new_col.Units = units
+            new_col.units = units
         if comments is not None:
-            new_col.Comments = comments
-        if axis is not None:
-            # Set axis designation using LabTalk command
-            axis_map = {'X': 1, 'Y': 2, 'Z': 3, 'E': 4}  # Common axis types
-            if isinstance(axis, str) and axis.upper() in axis_map:
-                new_col.Type = axis_map[axis.upper()]
-            elif isinstance(axis, int):
-                new_col.Type = axis
-        
-        # Set data
+            new_col.comments = comments
+        self._set_axis_type(new_col, axis)
+
         new_col.set_data(data_list)
         return new_col
 
-    def _add_column_from_dataframe(self, df: pd.DataFrame, lname: Optional[str] = None, 
-                                  units: Optional[str] = None, comments: Optional[str] = None, 
+    def _add_column_from_dataframe(self, df: pd.DataFrame,
+                                  units: Optional[str] = None, comments: Optional[str] = None,
                                   axis: Optional[str] = None) -> Union['Column', List['Column']]:
-        """
-        Add multiple columns from pandas DataFrame.
-        
+        """Add columns from a pandas DataFrame.
+
+        The DataFrame's own column names are always used as long names.
+
         Args:
-            df: pandas DataFrame to load
-            lname: Optional base name for columns
-            units: Optional units for the columns
-            comments: Optional comments for the columns
-            axis: Optional axis designation for the columns
-            
+            df: pandas DataFrame to load.
+            units: Optional units for all columns.
+            comments: Optional comments for all columns.
+            axis: Optional axis designation for all columns.
+
         Returns:
-            Column or List[Column]: The newly created column(s)
+            Column or List[Column]: The newly created column(s).
         """
         num_cols = len(df.columns)
         current_cols = self.get_cols()
         self.set_cols(current_cols + num_cols)
-        
+
         new_columns = []
         for i, col_name in enumerate(df.columns):
             new_col = self.columns[current_cols + i]
-            
-            # Set column properties
-            if lname is None:
-                new_col.LongName = str(col_name)
-            else:
-                new_col.LongName = f"{lname}_{col_name}"
-            
+            new_col.long_name = str(col_name)
             if units is not None:
-                new_col.Units = units
+                new_col.units = units
             if comments is not None:
-                new_col.Comments = comments
-            if axis is not None:
-                axis_map = {'X': 1, 'Y': 2, 'Z': 3, 'E': 4}
-                if isinstance(axis, str) and axis.upper() in axis_map:
-                    new_col.Type = axis_map[axis.upper()]
-                elif isinstance(axis, int):
-                    new_col.Type = axis
-            
-            # Set data
-            col_data = df[col_name].tolist()
-            new_col.set_data(col_data)
+                new_col.comments = comments
+            self._set_axis_type(new_col, axis)
+            new_col.set_data(df[col_name].tolist())
             new_columns.append(new_col)
-        
+
         return new_columns[0] if len(new_columns) == 1 else new_columns
 
-    def _add_column_from_2d_array(self, arr: np.ndarray, lname: Optional[str] = None, 
-                                 units: Optional[str] = None, comments: Optional[str] = None, 
+    def _add_column_from_2d_array(self, arr: np.ndarray,
+                                 lname: Optional[List[str]] = None,
+                                 units: Optional[str] = None, comments: Optional[str] = None,
                                  axis: Optional[str] = None) -> Union['Column', List['Column']]:
-        """
-        Add multiple columns from 2D numpy array.
-        
+        """Add columns from a 2-D numpy array (each column of the array → one Origin column).
+
         Args:
-            arr: 2D numpy array to load
-            lname: Optional base name for columns
-            units: Optional units for the columns
-            comments: Optional comments for the columns
-            axis: Optional axis designation for the columns
-            
+            arr: 2-D numpy array.  Shape is (rows, num_cols).
+            lname: ``None`` for auto-generated ``list_N`` names, or a ``list[str]``
+                   whose length must equal ``arr.shape[1]``.
+            units: Optional units for all columns.
+            comments: Optional comments for all columns.
+            axis: Optional axis designation for all columns.
+
         Returns:
-            Column or List[Column]: The newly created column(s)
+            Column or List[Column]: The newly created column(s).
+
+        Raises:
+            ValueError: If *lname* is a list whose length != number of columns.
         """
         num_cols = arr.shape[1]
+
+        if lname is not None and len(lname) != num_cols:
+            raise ValueError(
+                f"lname list length ({len(lname)}) must match the number of columns ({num_cols})."
+            )
+
         current_cols = self.get_cols()
         self.set_cols(current_cols + num_cols)
-        
+        next_n = self._get_next_list_number()
+
         new_columns = []
         for i in range(num_cols):
             new_col = self.columns[current_cols + i]
-            
-            # Set column properties
-            if lname is not None:
-                if num_cols == 1:
-                    new_col.LongName = lname
-                else:
-                    new_col.LongName = f"{lname}_{i+1}"
-            else:
-                new_col.LongName = f"Column_{current_cols + i + 1}"
-            
+            new_col.long_name = lname[i] if lname is not None else f"list_{next_n + i}"
             if units is not None:
-                new_col.Units = units
+                new_col.units = units
             if comments is not None:
-                new_col.Comments = comments
-            if axis is not None:
-                axis_map = {'X': 1, 'Y': 2, 'Z': 3, 'E': 4}
-                if isinstance(axis, str) and axis.upper() in axis_map:
-                    new_col.Type = axis_map[axis.upper()]
-                elif isinstance(axis, int):
-                    new_col.Type = axis
-            
-            # Set data
-            col_data = arr[:, i].tolist()
-            new_col.set_data(col_data)
+                new_col.comments = comments
+            self._set_axis_type(new_col, axis)
+            new_col.set_data(arr[:, i].tolist())
             new_columns.append(new_col)
-        
+
         return new_columns[0] if len(new_columns) == 1 else new_columns
 
-    def _add_column_from_2d_list(self, data: List[List[Any]], lname: Optional[str] = None, 
-                                units: Optional[str] = None, comments: Optional[str] = None, 
+    def _add_column_from_2d_list(self, data: List[List],
+                                lname: Optional[List[str]] = None,
+                                units: Optional[str] = None, comments: Optional[str] = None,
                                 axis: Optional[str] = None) -> Union['Column', List['Column']]:
-        """
-        Add multiple columns from 2D list.
-        
+        """Add columns from a 2-D list (list of rows).
+
         Args:
-            data: 2D list to load
-            lname: Optional base name for columns
-            units: Optional units for the columns
-            comments: Optional comments for the columns
-            axis: Optional axis designation for the columns
-            
+            data: 2-D list with shape [rows][cols].
+            lname: ``None`` for auto-generated ``list_N`` names, or a ``list[str]``
+                   whose length must equal the number of columns (``len(data[0])``).
+            units: Optional units for all columns.
+            comments: Optional comments for all columns.
+            axis: Optional axis designation for all columns.
+
         Returns:
-            Column or List[Column]: The newly created column(s)
+            Column or List[Column]: The newly created column(s).
+
+        Raises:
+            ValueError: If *lname* is a list whose length != number of columns.
         """
         num_cols = len(data[0]) if data else 0
+
+        if lname is not None and len(lname) != num_cols:
+            raise ValueError(
+                f"lname list length ({len(lname)}) must match the number of columns ({num_cols})."
+            )
+
         current_cols = self.get_cols()
         self.set_cols(current_cols + num_cols)
-        
+        next_n = self._get_next_list_number()
+
         new_columns = []
         for i in range(num_cols):
             new_col = self.columns[current_cols + i]
-            
-            # Set column properties
-            if lname is not None:
-                if num_cols == 1:
-                    new_col.LongName = lname
-                else:
-                    new_col.LongName = f"{lname}_{i+1}"
-            else:
-                new_col.LongName = f"Column_{current_cols + i + 1}"
-            
+            new_col.long_name = lname[i] if lname is not None else f"list_{next_n + i}"
             if units is not None:
-                new_col.Units = units
+                new_col.units = units
             if comments is not None:
-                new_col.Comments = comments
-            if axis is not None:
-                axis_map = {'X': 1, 'Y': 2, 'Z': 3, 'E': 4}
-                if isinstance(axis, str) and axis.upper() in axis_map:
-                    new_col.Type = axis_map[axis.upper()]
-                elif isinstance(axis, int):
-                    new_col.Type = axis
-            
-            # Set data from 2D list
+                new_col.comments = comments
+            self._set_axis_type(new_col, axis)
             col_data = [row[i] for row in data]
             new_col.set_data(col_data)
             new_columns.append(new_col)
-        
+
         return new_columns[0] if len(new_columns) == 1 else new_columns

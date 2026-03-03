@@ -15,7 +15,7 @@ from typing import Optional, Union, TYPE_CHECKING, List
 from collections.abc import Iterator
 
 from ..base import OriginObjectWrapper
-from .enums import ColorMap, AxisType, XYPlotType, GroupMode, OriginColorIndex, ColorSpec, color_to_lt_str
+from .enums import ColorMap, AxisType, XYPlotType, GroupMode, OriginColorIndex, ColorSpec, color_to_lt_str, LegendLayout
 from .worksheet import Worksheet
 
 from ..base import APP
@@ -188,7 +188,226 @@ class DataPlot:
         return self._plot.ChangeData(data_obj, designation, keep_modifiers)
 
 
+# ================== Legend Class ==================
+
+class Legend:
+    """
+    Legend object for a graph layer.
+
+    Wraps the LabTalk ``legend`` graphic object that Origin places on each
+    graph layer.  All properties and methods delegate to LabTalk via
+    ``api_core.LT_execute`` / ``LT_get_var`` / ``LT_get_str``.
+
+    Activate the parent layer before every operation so that LabTalk's
+    ``legend`` object always points to the correct layer.
+
+    Ref: https://www.originlab.com/doc/LabTalk/ref/Graphic-objs
+         https://www.originlab.com/doc/LabTalk/ref/Legend-cmd
+    """
+
+    def __init__(self, graph_layer: 'GraphLayer') -> None:
+        """
+        Initialize Legend wrapper.
+
+        Args:
+            graph_layer: Parent GraphLayer that owns this legend.
+        """
+        self._layer = graph_layer
+
+    # ── helpers ──────────────────────────────────────────────────────────
+
+    def _activate(self) -> None:
+        """Activate the parent layer so LabTalk's ``legend`` object is correct."""
+        if self._layer._parent_page is not None:
+            page_name = self._layer._parent_page.name
+            layer_no = self._layer._id + 1
+            self._layer.api_core.LT_execute(f"win -a {page_name}")
+            self._layer.api_core.LT_execute(f"layer {layer_no}")
+
+    # ── visibility ───────────────────────────────────────────────────────
+
+    @property
+    def visible(self) -> bool:
+        """Whether the legend is visible.
+
+        Corresponds to: ``legend.show`` in LabTalk.
+        """
+        self._activate()
+        self._layer.api_core.LT_execute("_leg_show = legend.show")
+        import math
+        val = self._layer.api_core.LT_get_var("_leg_show")
+        if math.isnan(val):
+            return True
+        return bool(int(val))
+
+    @visible.setter
+    def visible(self, value: bool) -> None:
+        """Show or hide the legend.
+
+        Args:
+            value: True to show, False to hide.
+        """
+        self._activate()
+        self._layer.api_core.LT_execute(f"legend.show = {1 if value else 0}")
+
+    # ── text ─────────────────────────────────────────────────────────────
+
+    @property
+    def text(self) -> str:
+        """Raw text content of the legend object.
+
+        Corresponds to: ``legend.text$`` in LabTalk.
+        """
+        self._activate()
+        self._layer.api_core.LT_execute("_leg_text$ = legend.text$")
+        return self._layer.api_core.LT_get_str("_leg_text")
+
+    @text.setter
+    def text(self, value: str) -> None:
+        """Set the raw text of the legend.
+
+        Args:
+            value: New legend text. Use ``\\(\\n)`` for line breaks.
+        """
+        self._activate()
+        escaped = value.replace('"', '\\"')
+        self._layer.api_core.LT_execute(f'legend.text$ = "{escaped}"')
+
+    # ── position ─────────────────────────────────────────────────────────
+
+    def get_position(self) -> tuple:
+        """Get the legend position in axis-scale units.
+
+        Corresponds to: ``legend.x``, ``legend.y`` in LabTalk.
+
+        Returns:
+            tuple: (x, y) centre coordinates of the legend in axis-scale units.
+        """
+        import math
+        self._activate()
+        self._layer.api_core.LT_execute("_leg_x = legend.x")
+        self._layer.api_core.LT_execute("_leg_y = legend.y")
+        x = self._layer.api_core.LT_get_var("_leg_x")
+        y = self._layer.api_core.LT_get_var("_leg_y")
+        x = 0.0 if math.isnan(x) else float(x)
+        y = 0.0 if math.isnan(y) else float(y)
+        return (x, y)
+
+    def set_position(self, x: float, y: float) -> None:
+        """Move the legend to the specified position.
+
+        Coordinates are in axis-scale units (same coordinate system as the
+        layer axes).
+
+        Corresponds to: ``legend.x = x; legend.y = y`` in LabTalk.
+
+        Args:
+            x: Horizontal centre of the legend in axis-scale units.
+            y: Vertical centre of the legend in axis-scale units.
+        """
+        self._activate()
+        self._layer.api_core.LT_execute(f"legend.x = {x}; legend.y = {y}")
+
+    def reset_position(self) -> None:
+        """Reset the legend to its default position.
+
+        Corresponds to: ``legend -d`` in LabTalk.
+        """
+        self._activate()
+        self._layer.api_core.LT_execute("legend -d")
+
+    # ── font size ─────────────────────────────────────────────────────────
+
+    @property
+    def font_size(self) -> int:
+        """Font size of the legend text in points.
+
+        Corresponds to: ``legend.fsize`` in LabTalk.
+        """
+        import math
+        self._activate()
+        self._layer.api_core.LT_execute("_leg_fsize = legend.fsize")
+        val = self._layer.api_core.LT_get_var("_leg_fsize")
+        if math.isnan(val):
+            return 12
+        return int(val)
+
+    @font_size.setter
+    def font_size(self, value: int) -> None:
+        """Set the legend font size.
+
+        Args:
+            value: Font size in points (positive integer).
+        """
+        if value <= 0:
+            raise ValueError(f"font_size must be a positive integer, got {value}")
+        self._activate()
+        self._layer.api_core.LT_execute(f"legend.fsize = {value}")
+
+    # ── background box ────────────────────────────────────────────────────
+
+    @property
+    def background(self) -> int:
+        """Background box style of the legend.
+
+        0 = none, 1 = black border, 2 = shadow, 3 = white-out,
+        4 = black border + white-out.
+
+        Corresponds to: ``legend.background`` in LabTalk.
+        """
+        import math
+        self._activate()
+        self._layer.api_core.LT_execute("_leg_bg = legend.background")
+        val = self._layer.api_core.LT_get_var("_leg_bg")
+        if math.isnan(val):
+            return 1
+        return int(val)
+
+    @background.setter
+    def background(self, value: int) -> None:
+        """Set the legend background box style.
+
+        Args:
+            value: 0=none, 1=black border, 2=shadow, 3=white-out,
+                   4=black border + white-out.
+        """
+        self._activate()
+        self._layer.api_core.LT_execute(f"legend.background = {value}")
+
+    # ── layout ────────────────────────────────────────────────────────────
+
+    def set_layout(self, layout: LegendLayout) -> None:
+        """Rearrange legend entries horizontally or vertically.
+
+        Args:
+            layout: LegendLayout.VERTICAL or LegendLayout.HORIZONTAL.
+        """
+        self._activate()
+        self._layer.api_core.LT_execute(f"legend -{layout.value}")
+
+    # ── reconstruct ───────────────────────────────────────────────────────
+
+    def reconstruct(self) -> None:
+        """Reconstruct the legend to best-fit the current plots.
+
+        Equivalent to menu Graph > Legend > Reconstruct Legend.
+
+        Corresponds to: ``legend -r`` in LabTalk.
+        """
+        self._activate()
+        self._layer.api_core.LT_execute("legend -r")
+
+    def update(self) -> None:
+        """Create or update the legend on the active graph layer.
+
+        Corresponds to: ``legend`` (no option) in LabTalk.
+        """
+        self._activate()
+        self._layer.api_core.LT_execute("legend")
+
+
 # ================== Axis Class ==================
+
 
 class Axis:
     """
@@ -490,6 +709,15 @@ class GraphLayer(OriginObjectWrapper[oext_types.GraphLayer]):
             f"layer.left = {x}; layer.top = {y}; "
             f"layer.width = {width}; layer.height = {height}"
         )
+
+    def get_legend(self) -> Legend:
+        """
+        Get the legend object for this layer.
+
+        Returns:
+            Legend: Legend wrapper for this graph layer.
+        """
+        return Legend(self)
 
     def get_scale(self) -> tuple:
         """
