@@ -471,16 +471,16 @@ class GraphPage(Page[oext_types.GraphPage]):
             try:
                 # Get the layer from the graph page
                 layer_obj = self._obj.GetLayer(index)
-                return GraphLayer(layer_obj, self.api_core, index)
+                return GraphLayer(layer_obj, self.api_core, index, self)
             except AttributeError:
                 # Fallback: try to get the layer by name using LabTalk
                 layer_name = f"{self.name}{index+1}"  # Layer names are typically "Graph1", "Graph2", etc.
                 cmd_get = f'layer -a {layer_name}'
                 self.api_core.LT_execute(cmd_get)
-                
+
                 # Get the active layer
                 active_layer = oext_types.GraphLayer()
-                return GraphLayer(active_layer, self.api_core, index)
+                return GraphLayer(active_layer, self.api_core, index, self)
         else:
             raise RuntimeError("No API core available for LabTalk execution")
 

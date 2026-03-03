@@ -463,3 +463,59 @@ class GraphLayer(OriginObjectWrapper[oext_types.GraphLayer]):
             GraphPage: Parent graph page object
         """
         return oext.GraphPage_GetPage(self._obj)
+
+    def set_scale(self, x: float, y: float, width: float, height: float) -> None:
+        """
+        Set the drawing position and size of this layer on the page.
+
+        All values are in percentage of the page dimensions (0-100).
+        Origin's default layer occupies roughly x=15, y=15, width=70, height=70.
+
+        Corresponds to: layer.left = x; layer.top = y; layer.width = w; layer.height = h
+
+        Args:
+            x: Left position as percentage of page width (0-100)
+            y: Top position as percentage of page height (0-100)
+            width: Layer width as percentage of page width (0-100)
+            height: Layer height as percentage of page height (0-100)
+        """
+        if self._parent_page is not None:
+            page_name = self._parent_page.name
+            layer_no = self._id + 1  # 1-based layer number
+            # Activate the target layer so LabTalk's 'layer' object points to it
+            self.api_core.LT_execute(f"win -a {page_name}")
+            self.api_core.LT_execute(f"layer {layer_no}")
+        # Set all four geometry properties in one command
+        self.api_core.LT_execute(
+            f"layer.left = {x}; layer.top = {y}; "
+            f"layer.width = {width}; layer.height = {height}"
+        )
+
+    def get_scale(self) -> tuple:
+        """
+        Get the current drawing position and size of this layer.
+
+        All values are in percentage of the page dimensions (0-100).
+
+        Corresponds to: GetNumProp("left/top/width/height") on the OriginExt layer object.
+
+        Returns:
+            tuple: (x, y, width, height) in percentage of page dimensions,
+                   or (0.0, 0.0, 0.0, 0.0) if unavailable
+        """
+        if self._parent_page is None:
+            return (0.0, 0.0, 0.0, 0.0)
+
+        import math
+
+        def _safe(v):
+            return 0.0 if math.isnan(v) else float(v)
+
+        # GetNumProp reads geometry directly from the OriginExt layer object.
+        # Values are in percentage of page dimensions (0-100).
+        x      = _safe(self._obj.GetNumProp("left"))
+        y      = _safe(self._obj.GetNumProp("top"))
+        width  = _safe(self._obj.GetNumProp("width"))
+        height = _safe(self._obj.GetNumProp("height"))
+
+        return (x, y, width, height)
