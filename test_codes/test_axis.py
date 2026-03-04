@@ -2,7 +2,8 @@
 Integration test: verify Axis manipulation via GraphLayer.get_axis().
 
 Tests cover:
-  [1]  get_axis() returns an Axis instance for X and Y
+  [1]  get_axis() returns an Axis instance for X and Y;
+         Axis._graph_layer / Axis._graph_layer._parent_page return correct parent references
   [2]  get_range() / set_range(): set and verify roundtrip
   [3]  get_reverse() / set_reverse(): set True then False and verify
   [4]  get_major_tick() / set_major_tick(): set each TickType and verify
@@ -73,10 +74,18 @@ def _test_body(origin: ops.OriginInstance):
     ax_x = layer.get_axis(AxisType.X)
     ax_y = layer.get_axis(AxisType.Y)
 
-    # ── [1] get_axis() returns Axis ───────────────────────────────────────
+    # ── [1] get_axis() returns Axis + parent references ─────────────────────
     print("\n[1] get_axis() returns Axis instances ...")
     assert isinstance(ax_x, Axis), f"Expected Axis, got {type(ax_x)}"
     assert isinstance(ax_y, Axis), f"Expected Axis, got {type(ax_y)}"
+
+    assert ax_x._graph_layer is layer, "ax_x._graph_layer should be the parent layer"
+    assert ax_y._graph_layer is layer, "ax_y._graph_layer should be the parent layer"
+    print(f"  ax_x._graph_layer is layer: {ax_x._graph_layer is layer}")
+
+    assert ax_x._graph_layer._parent_page is graph_page, "ax_x._graph_layer._parent_page should be the parent GraphPage"
+    assert ax_y._graph_layer._parent_page is graph_page, "ax_y._graph_layer._parent_page should be the parent GraphPage"
+    print(f"  ax_x._graph_layer._parent_page is graph_page: {ax_x._graph_layer._parent_page is graph_page}")
     print("  OK")
 
     # ── [2] get_range / set_range ─────────────────────────────────────────

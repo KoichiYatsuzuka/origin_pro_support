@@ -7,19 +7,25 @@ This module contains wrapper classes for Origin graph layers including:
 - GraphLayer
 """
 from __future__ import annotations
-
+import math
 import OriginExt.OriginExt as oext_types
 import OriginExt._OriginExt as oext
 from enum import Enum
 from typing import Optional, Union, TYPE_CHECKING, List
 from collections.abc import Iterator
 
-from ..base import OriginObjectWrapper
+from ..base import OriginCommandResponceError, OriginNotFoundError, OriginObjectWrapper
 from .enums import ColorMap, AxisType, XYPlotType, GroupMode, OriginColorIndex, ColorSpec, color_to_lt_str, LegendLayout, TickType
 from .worksheet import Worksheet
 
 from ..base import APP
-from ..lab_talk.lab_talk_commands import axis_pg, axis_ps
+from ..lab_talk.lab_talk_commands import (
+    axis_pg, axis_ps,
+    layer_axis_get, layer_axis_set,
+    layer_axis_get_from, layer_axis_set_from,
+    layer_axis_get_to, layer_axis_set_to,
+    layer_axis_get_ticks, layer_axis_set_ticks,
+)
 
 if TYPE_CHECKING:
     from ..pages import GraphPage
@@ -425,19 +431,35 @@ class Axis:
             axis_type: Type of axis (X, Y, Z, ERROR, X2, or Y2)
         """
         self._axis_type = axis_type
+        self._graph_layer: 'GraphLayer' = graph_layer
         self._api_core: APP = graph_layer.api_core
-        self._page_name: Optional[str] = (
-            graph_layer._parent_page.name if graph_layer._parent_page is not None else None
-        )
-        self._layer_id: int = graph_layer._id
+
+    # ── parent references ────────────────────────────────────────────────
+
+    @property
+    def __graph_layer(self) -> 'GraphLayer':
+        """Return the parent GraphLayer instance."""
+        return self._graph_layer
+
+    @property
+    def __graph_page(self) -> 'GraphPage':
+        """Return the parent GraphPage instance, or None if unavailable."""
+        return self._graph_layer._parent_page
 
     # ── helpers ──────────────────────────────────────────────────────────
 
-    def _activate(self) -> None:
-        """Activate the parent layer so LabTalk layer object points to it."""
-        if self._page_name is not None:
-            self._api_core.LT_execute(f"win -a {self._page_name}")
-            self._api_core.LT_execute(f"layer {self._layer_id + 1}")
+    def _page_context(self) -> tuple[str, int]:
+        """Return ``(page_name, layer_id)`` for use in LabTalk command helpers.
+
+        Raises:
+            RuntimeError: If the parent GraphPage is unavailable.
+        """
+        parent_page = self._graph_layer._parent_page
+        if parent_page is None:
+            raise RuntimeError(
+                "Cannot build LabTalk command: parent GraphPage is not set on this Axis."
+            )
+        return parent_page.name, self._graph_layer._id
 
     def _get_axis_letter(self) -> str:
         """Get the LabTalk axis object prefix for this axis type."""
@@ -467,16 +489,15 @@ class Axis:
         Returns:
             tuple: (min_value, max_value)
         """
-        import math
         ax = self._get_axis_letter()
-        self._activate()
-        self._api_core.LT_execute(f"_ax_from = layer.{ax}.from")
-        self._api_core.LT_execute(f"_ax_to = layer.{ax}.to")
+        page, lid = self._page_context()
+        self._api_core.LT_execute(layer_axis_get_from(page, lid, ax, "_ax_from"))
+        self._api_core.LT_execute(layer_axis_get_to(page, lid, ax, "_ax_to"))
         min_val = self._api_core.LT_get_var("_ax_from")
         max_val = self._api_core.LT_get_var("_ax_to")
-        min_val = 0.0 if math.isnan(min_val) else float(min_val)
-        max_val = 1.0 if math.isnan(max_val) else float(max_val)
-        return (min_val, max_val)
+        if math.isnan(min_val) or math.isnan(max_val):
+            raise OriginCommandResponceError(f"NaN value is received while getting axis range. (page={page}, layer={lid})")
+        return (float(min_val), float(max_val))
 
     def set_range(self, min_val: float, max_val: float) -> None:
         """
@@ -487,12 +508,10 @@ class Axis:
             max_val: Maximum value
         """
         ax = self._get_axis_letter()
-        self._activate()
-        self._api_core.LT_execute(
-            f"layer.{ax}.rescale = 1; "
-            f"layer.{ax}.from = {min_val}; "
-            f"layer.{ax}.to = {max_val}"
-        )
+        page, lid = self._page_context()
+        self._api_core.LT_execute(layer_axis_set(page, lid, ax, "rescale", 1))
+        self._api_core.LT_execute(layer_axis_set_from(page, lid, ax, min_val))
+        self._api_core.LT_execute(layer_axis_set_to(page, lid, ax, max_val))
 
     # ── reverse ──────────────────────────────────────────────────────────
 
@@ -503,13 +522,12 @@ class Axis:
         Returns:
             bool: True if reversed
         """
-        import math
         ax = self._get_axis_letter()
-        self._activate()
-        self._api_core.LT_execute(f"_ax_rev = layer.{ax}.reverse")
+        page, lid = self._page_context()
+        self._api_core.LT_execute(layer_axis_get(page, lid, ax, "reverse", "_ax_rev"))
         val = self._api_core.LT_get_var("_ax_rev")
         if math.isnan(val):
-            return False
+            raise OriginCommandResponceError(f"NaN value is received while getting axis reverse. (page={page}, layer={lid})")
         return bool(int(val))
 
     def set_reverse(self, reverse: bool) -> None:
@@ -520,21 +538,24 @@ class Axis:
             reverse: True to reverse the axis
         """
         ax = self._get_axis_letter()
-        self._activate()
-        self._api_core.LT_execute(f"layer.{ax}.reverse = {1 if reverse else 0}")
+        page, lid = self._page_context()
+        self._api_core.LT_execute(layer_axis_set(page, lid, ax, "reverse", 1 if reverse else 0))
 
     # ── tick marks (TODO-2) ───────────────────────────────────────────────
 
     def _get_ticks_raw(self, ax: str) -> int:
         """Read the raw ``layer.axis.ticks`` bitmask value."""
-        import math
-        self._api_core.LT_execute(f"_ax_ticks = layer.{ax}.ticks")
+        page, lid = self._page_context()
+        self._api_core.LT_execute(layer_axis_get_ticks(page, lid, ax, "_ax_ticks"))
         val = self._api_core.LT_get_var("_ax_ticks")
-        return 0 if math.isnan(val) else int(val)
+        if math.isnan(val):
+            raise OriginCommandResponceError(f"NaN value is received while getting axis ticks. (page={page}, layer={lid}, graph={self._graph_layer._name})")
+        return int(val)
 
     def _set_ticks_raw(self, ax: str, raw: int) -> None:
         """Write the raw ``layer.axis.ticks`` bitmask value."""
-        self._api_core.LT_execute(f"layer.{ax}.ticks = {raw}")
+        page, lid = self._page_context()
+        self._api_core.LT_execute(layer_axis_set_ticks(page, lid, ax, raw))
 
     def get_major_tick(self) -> TickType:
         """
@@ -547,7 +568,6 @@ class Axis:
             TickType: Current major tick style.
         """
         ax = self._get_axis_letter()
-        self._activate()
         raw = self._get_ticks_raw(ax)
         return TickType(raw & 0x03)
 
@@ -563,7 +583,6 @@ class Axis:
             tick_type: TickType enum value.
         """
         ax = self._get_axis_letter()
-        self._activate()
         raw = self._get_ticks_raw(ax)
         new_raw = (raw & ~0x03) | (tick_type.value & 0x03)
         self._set_ticks_raw(ax, new_raw)
@@ -580,7 +599,6 @@ class Axis:
             TickType: Current minor tick style.
         """
         ax = self._get_axis_letter()
-        self._activate()
         raw = self._get_ticks_raw(ax)
         return TickType((raw >> 2) & 0x03)
 
@@ -596,7 +614,6 @@ class Axis:
             tick_type: TickType enum value.
         """
         ax = self._get_axis_letter()
-        self._activate()
         raw = self._get_ticks_raw(ax)
         new_raw = (raw & ~0x0C) | ((tick_type.value & 0x03) << 2)
         self._set_ticks_raw(ax, new_raw)
@@ -613,12 +630,13 @@ class Axis:
         Returns:
             float: Current major tick increment value.
         """
-        import math
         ax = self._get_axis_letter()
-        self._activate()
-        self._api_core.LT_execute(f"_ax_inc = layer.{ax}.inc")
+        page, lid = self._page_context()
+        self._api_core.LT_execute(layer_axis_get(page, lid, ax, "inc", "_ax_inc"))
         val = self._api_core.LT_get_var("_ax_inc")
-        return 0.0 if math.isnan(val) else float(val)
+        if math.isnan(val):
+            raise OriginCommandResponceError(f"NaN value is received while getting major tick spacing. (page={page}, layer={lid}, graph={self._graph_layer._name})")
+        return float(val)
 
     def set_major_tick_spacing(self, spacing: Union[int, float]) -> None:
         """
@@ -632,8 +650,8 @@ class Axis:
         if spacing <= 0:
             raise ValueError(f"spacing must be positive, got {spacing}")
         ax = self._get_axis_letter()
-        self._activate()
-        self._api_core.LT_execute(f"layer.{ax}.inc = {spacing}")
+        page, lid = self._page_context()
+        self._api_core.LT_execute(layer_axis_set(page, lid, ax, "inc", spacing))
 
     def get_minor_tick_count(self) -> int:
         """
@@ -645,12 +663,13 @@ class Axis:
         Returns:
             int: Current number of minor ticks between major ticks.
         """
-        import math
         pg_ax = self._get_axis_pg_letter()
-        self._activate()
+        page, lid = self._page_context()
         self._api_core.LT_execute(axis_pg(pg_ax, "M", "_ax_minor"))
         val = self._api_core.LT_get_var("_ax_minor")
-        return 0 if math.isnan(val) else int(val)
+        if math.isnan(val):
+            raise OriginCommandResponceError(f"NaN value is received while getting minor tick count. (page={page}, layer={lid})")
+        return int(val)
 
     def set_minor_tick_count(self, count: int) -> None:
         """
@@ -665,7 +684,6 @@ class Axis:
         if count < 0:
             raise ValueError(f"count must be non-negative, got {count}")
         pg_ax = self._get_axis_pg_letter()
-        self._activate()
         self._api_core.LT_execute(axis_ps(pg_ax, "M", count))
 
     # ── opposite axis visibility (TODO-3) ─────────────────────────────────
@@ -682,8 +700,8 @@ class Axis:
         Ref: https://www.originlab.com/doc/LabTalk/ref/Layer-Axis-obj
         """
         ax2 = self._get_opposite_axis_letter()
-        self._activate()
-        self._api_core.LT_execute(f"layer.{ax2}.showAxes = 1")
+        page, lid = self._page_context()
+        self._api_core.LT_execute(layer_axis_set(page, lid, ax2, "showAxes", 1))
 
     def hide_opposite_axis(self) -> None:
         """
@@ -696,8 +714,8 @@ class Axis:
         Corresponds to: ``x2.showAxes = 0`` / ``y2.showAxes = 0`` in LabTalk.
         """
         ax2 = self._get_opposite_axis_letter()
-        self._activate()
-        self._api_core.LT_execute(f"layer.{ax2}.showAxes = 0")
+        page, lid = self._page_context()
+        self._api_core.LT_execute(layer_axis_set(page, lid, ax2, "showAxes", 0))
 
     def get_opposite_axis_visible(self) -> bool:
         """
@@ -706,13 +724,12 @@ class Axis:
         Returns:
             bool: True if visible.
         """
-        import math
         ax2 = self._get_opposite_axis_letter()
-        self._activate()
-        self._api_core.LT_execute(f"_ax_show = layer.{ax2}.showAxes")
+        page, lid = self._page_context()
+        self._api_core.LT_execute(layer_axis_get(page, lid, ax2, "showAxes", "_ax_show"))
         val = self._api_core.LT_get_var("_ax_show")
         if math.isnan(val):
-            return False
+            raise OriginCommandResponceError(f"NaN value is received while getting opposite axis visibility. (page={page}, layer={lid})")
         return bool(int(val))
 
     def _get_axis_pg_letter(self) -> str:
@@ -790,7 +807,9 @@ class Axis:
             str: Current axis title string.
         """
         obj = self._get_title_obj_name()
-        self._activate()
+        page, lid = self._page_context()
+        self._api_core.LT_execute(f"win -a {page}")
+        self._api_core.LT_execute(f"layer {lid + 1}")
         self._api_core.LT_execute(f"string _ax_lbl$; _ax_lbl$ = {obj}.text$")
         return self._api_core.LT_get_str("_ax_lbl")
 
@@ -805,8 +824,10 @@ class Axis:
             value: New title string for the axis.
         """
         obj = self._get_title_obj_name()
+        page, lid = self._page_context()
         escaped = value.replace('"', '\\"')
-        self._activate()
+        self._api_core.LT_execute(f"win -a {page}")
+        self._api_core.LT_execute(f"layer {lid + 1}")
         self._api_core.LT_execute(f'{obj}.text$ = "{escaped}"')
 
     # ── axis label visibility (TODO-5) ───────────────────────────────────
@@ -819,7 +840,9 @@ class Axis:
         Ref: https://www.originlab.com/doc/LabTalk/ref/Graphic-objs
         """
         obj = self._get_title_obj_name()
-        self._activate()
+        page, lid = self._page_context()
+        self._api_core.LT_execute(f"win -a {page}")
+        self._api_core.LT_execute(f"layer {lid + 1}")
         self._api_core.LT_execute(f"{obj}.show = 1")
 
     def hide_label(self) -> None:
@@ -829,7 +852,9 @@ class Axis:
         Corresponds to: ``xb.show = 0`` / ``yl.show = 0`` etc. in LabTalk.
         """
         obj = self._get_title_obj_name()
-        self._activate()
+        page, lid = self._page_context()
+        self._api_core.LT_execute(f"win -a {page}")
+        self._api_core.LT_execute(f"layer {lid + 1}")
         self._api_core.LT_execute(f"{obj}.show = 0")
 
     def get_label_visible(self) -> bool:
@@ -839,13 +864,14 @@ class Axis:
         Returns:
             bool: True if the label is visible.
         """
-        import math
         obj = self._get_title_obj_name()
-        self._activate()
+        page, lid = self._page_context()
+        self._api_core.LT_execute(f"win -a {page}")
+        self._api_core.LT_execute(f"layer {lid + 1}")
         self._api_core.LT_execute(f"_ax_sl = {obj}.show")
         val = self._api_core.LT_get_var("_ax_sl")
         if math.isnan(val):
-            return True
+            raise OriginCommandResponceError(f"NaN value is received while getting label visibility. (page={page}, layer={lid})")
         return bool(int(val))
 
 

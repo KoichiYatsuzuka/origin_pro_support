@@ -35,7 +35,9 @@ class OriginPageGenerationError(BaseException):
     """Exception raised when page generation fails."""
     pass
 
-
+class OriginCommandResponceError(BaseException):
+    """Exception raised when a command response is NaN, null, failed to cast, and so on."""
+    pass
 # ================== Type Variables ==================
 
 T = TypeVar('T')
