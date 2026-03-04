@@ -223,6 +223,140 @@ def layer_axis_set_ticks(page_name: str, layer_id: int, axis: str, value: int) -
     return f"[{page_name}]!layer{layer_id + 1}.{axis}.ticks = {value}"
 
 
+# ── Layer.Plot object property helpers ────────────────────────────────────────
+# Ref: https://www.originlab.com/doc/LabTalk/ref/Layer-plot-obj
+#
+# All functions below use the ``[PageName]!layerN.plot(M).prop`` notation so
+# the target page and layer are explicit and do NOT rely on the active window.
+
+
+def layer_plot_get(page_name: str, layer_id: int, plot_id: int, prop: str, var: str) -> str:
+    """Get a Layer.plot property and store the result in a LabTalk variable.
+
+    ### page_name
+        Short name of the graph page (e.g. ``"Graph1"``).
+
+    ### layer_id
+        0-based layer index.
+
+    ### plot_id
+        1-based plot index within the layer.
+
+    ### prop
+        Property path on the Layer.plot object, e.g. ``"color"``,
+        ``"symbol.size"``, ``"symbol.kind"``.
+
+    ### var
+        Name of the LabTalk variable to receive the value.
+
+    Generates: ``var = [PageName]!layerN.plot(M).prop``
+
+    Ref: https://www.originlab.com/doc/LabTalk/ref/Layer-plot-obj
+    """
+    return f"{var} = [{page_name}]!layer{layer_id + 1}.plot({plot_id}).{prop}"
+
+
+def layer_plot_set(page_name: str, layer_id: int, plot_id: int, prop: str, value: Union[int, float, str]) -> str:
+    """Set a Layer.plot property.
+
+    ### page_name
+        Short name of the graph page (e.g. ``"Graph1"``).
+
+    ### layer_id
+        0-based layer index.
+
+    ### plot_id
+        1-based plot index within the layer.
+
+    ### prop
+        Property path on the Layer.plot object, e.g. ``"color"``,
+        ``"symbol.size"``, ``"symbol.kind"``.
+
+    ### value
+        Value to assign.
+
+    Generates: ``[PageName]!layerN.plot(M).prop = value``
+
+    Ref: https://www.originlab.com/doc/LabTalk/ref/Layer-plot-obj
+    """
+    return f"[{page_name}]!layer{layer_id + 1}.plot({plot_id}).{prop} = {value}"
+
+
+def layer_plot_get_name(page_name: str, layer_id: int, plot_id: int, var: str) -> str:
+    """Get the dataset name of a plot and store it in a LabTalk string variable.
+
+    ### page_name
+        Short name of the graph page (e.g. ``"Graph1"``).
+
+    ### layer_id
+        0-based layer index.
+
+    ### plot_id
+        1-based plot index within the layer.
+
+    ### var
+        Name of the LabTalk *string* variable to receive the value (without ``$``).
+
+    Generates: ``var$ = [PageName]!layerN.plot(M).name$``
+
+    Ref: https://www.originlab.com/doc/LabTalk/ref/Layer-plot-obj
+    """
+    return f"{var}$ = [{page_name}]!layer{layer_id + 1}.plot({plot_id}).name$"
+
+
+def layer_plot_count(page_name: str, layer_id: int, var: str) -> str:
+    """Get the number of plots in a layer and store it in a LabTalk variable.
+
+    ### page_name
+        Short name of the graph page (e.g. ``"Graph1"``).
+
+    ### layer_id
+        0-based layer index.
+
+    ### var
+        Name of the LabTalk variable to receive the count.
+
+    Generates: ``var = [PageName]!layerN.numplots``
+
+    Ref: https://www.originlab.com/doc/LabTalk/ref/Layer-obj
+    """
+    return f"{var} = [{page_name}]!layer{layer_id + 1}.numplots"
+
+
+def plot_set_symbol_size(dataset_name: str, size: float) -> str:
+    """Set the symbol size of a plot via the ``set`` LabTalk command.
+
+    ### dataset_name
+        The dataset name as returned by ``DataObjectBase.GetDatasetName()``,
+        e.g. ``"Book1_B"``.
+
+    ### size
+        Symbol size as a positive float.
+
+    Generates: ``set <dataset_name> -z <size>``
+
+    Ref: https://www.originlab.com/doc/LabTalk/ref/Set-cmd
+    """
+    return f"set {dataset_name} -z {size}"
+
+
+def plot_set_symbol_kind(dataset_name: str, kind: int) -> str:
+    """Set the symbol shape (kind) of a plot via the ``set`` LabTalk command.
+
+    ### dataset_name
+        The dataset name as returned by ``DataObjectBase.GetDatasetName()``,
+        e.g. ``"Book1_B"``.
+
+    ### kind
+        Symbol kind integer corresponding to ``MarkerShape`` enum values.
+
+    Generates: ``set <dataset_name> -k <kind>``
+
+    Ref: https://www.originlab.com/doc/LabTalk/ref/Set-cmd
+    """
+    return f"set {dataset_name} -k {kind}"
+
+
 def axis_ps(
     axis: str,
     type: str,

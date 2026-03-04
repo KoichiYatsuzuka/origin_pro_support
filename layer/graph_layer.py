@@ -8,6 +8,8 @@ This module contains wrapper classes for Origin graph layers including:
 """
 from __future__ import annotations
 import math
+import re
+import warnings
 import OriginExt.OriginExt as oext_types
 import OriginExt._OriginExt as oext
 from enum import Enum
@@ -15,7 +17,7 @@ from typing import Optional, Union, TYPE_CHECKING, List
 from collections.abc import Iterator
 
 from ..base import OriginCommandResponceError, OriginNotFoundError, OriginObjectWrapper
-from .enums import ColorMap, AxisType, XYPlotType, GroupMode, OriginColorIndex, ColorSpec, color_to_lt_str, LegendLayout, TickType
+from .enums import ColorMap, AxisType, XYPlotType, GroupMode, OriginColorIndex, ColorSpec, color_to_lt_str, LegendLayout, TickType, MarkerShape
 from .worksheet import Worksheet
 
 from ..base import APP
@@ -25,10 +27,18 @@ from ..lab_talk.lab_talk_commands import (
     layer_axis_get_from, layer_axis_set_from,
     layer_axis_get_to, layer_axis_set_to,
     layer_axis_get_ticks, layer_axis_set_ticks,
+    layer_plot_get, layer_plot_set,
+    layer_plot_get_name, layer_plot_count,
+    plot_set_symbol_size, plot_set_symbol_kind,
 )
 
 if TYPE_CHECKING:
     from ..pages import GraphPage
+
+
+# Regex to extract the 1-based plot index from GetRange() strings like
+# '[Graph1]1!Plot(3)' or '[Graph1]Layer1!Plot(3)'.
+_RE_PLOT_ID = re.compile(r'Plot\((\d+)\)', re.IGNORECASE)
 
 
 # ================== DataPlot Class ==================
@@ -38,82 +48,116 @@ class DataPlot:
     Data plot in a graph layer.
     Wrapper class that wraps OriginExt.OriginExt.DataPlot.
 
+    Holds a reference to the parent ``GraphLayer`` and the underlying
+    ``oext_types.DataPlot`` object.  Index-based access is not supported;
+    the 1-based LabTalk plot ID is resolved at runtime by comparing
+    ``DatasetName`` values reported by LabTalk.
+
     Corresponds to: originpro.DataPlot, OriginExt.OriginExt.DataPlot
     """
 
-    def __init__(self, plot, api_core: 'APP',
-                 page_name: Optional[str] = None,
-                 layer_index: Optional[int] = None):
+    def __init__(self, plot: oext_types.DataPlot, graph_layer: 'GraphLayer'):
         """
-        Initialize DataPlot wrapper with hierarchical references.
+        Initialize DataPlot wrapper.
 
         Args:
-            plot: Original OriginExt.DataPlot instance to wrap or plot index
-            api_core: APP instance reference for LabTalk access
-            page_name: Short name of the parent graph page (enables layer activation)
-            layer_index: 0-based index of the parent graph layer
+            plot: ``OriginExt.OriginExt.DataPlot`` instance to wrap.
+            graph_layer: Parent ``GraphLayer`` that owns this plot.
         """
         if plot is None:
             raise ValueError("DataPlot cannot be created with None plot object")
-        self._plot = plot
-        self.__API_core = api_core
-        self._is_index = isinstance(plot, int)
-        self._page_name = page_name
-        self._layer_index = layer_index
+        if not isinstance(plot, oext_types.DataPlot):
+            raise TypeError(
+                f"plot must be an OriginExt.DataPlot instance, got {type(plot).__name__}"
+            )
+        self._plot: oext_types.DataPlot = plot
+        self._graph_layer: 'GraphLayer' = graph_layer
 
+    # ── helpers ──────────────────────────────────────────────────────────
 
     @property
     def api_core(self) -> 'APP':
-        """Get the API core reference"""
-        return self.__API_core
+        """Get the API core reference from the parent layer."""
+        return self._graph_layer.api_core
+
+    def _page_context(self) -> tuple[str, int]:
+        """Return ``(page_name, layer_id)`` for use in LabTalk command helpers.
+
+        Raises:
+            RuntimeError: If the parent GraphPage is unavailable.
+        """
+        parent_page = self._graph_layer._parent_page
+        if parent_page is None:
+            raise RuntimeError(
+                "Cannot build LabTalk command: parent GraphPage is not set on the parent GraphLayer."
+            )
+        return parent_page.name, self._graph_layer._id
+
+    def _resolve_plot_id(self) -> int:
+        """Resolve the 1-based LabTalk plot ID for this DataPlot.
+
+        Extracts the 1-based plot index from the range string returned by
+        ``OriginExt.DataPlot.GetRange()``, which has the form
+        ``"[PageName]LayerN!Plot(M)"``.
+
+        Returns:
+            int: 1-based plot index within the parent layer.
+
+        Raises:
+            OriginNotFoundError: If the range string cannot be parsed.
+        """
+        range_str: str = self._plot.GetRange()
+        match = _RE_PLOT_ID.search(range_str)
+        if match is None:
+            raise OriginNotFoundError(
+                f"Cannot extract plot ID from range string '{range_str}'."
+            )
+        return int(match.group(1))
+
+    def _has_symbol(self) -> bool:
+        """Return True if this plot type supports symbol (marker) display.
+
+        Checks for the presence of a top-level ``Symbol`` node in the plot's
+        theme tree, which is present for scatter and line+symbol plots but
+        absent for line-only and other non-symbol plot types.
+        """
+        theme = self._plot.GetTheme()
+        child = theme.firstChild
+        while child is not None:
+            if child.Name == 'Symbol':
+                return True
+            child = child.nextSibling
+        return False
+
+    def _assert_has_symbol(self) -> None:
+        """Raise ValueError if this plot does not support symbol display."""
+        if not self._has_symbol():
+            raise ValueError(
+                f"Plot '{self.name}' does not support symbol (marker) properties. "
+                "Only scatter and line+symbol plots have markers."
+            )
+
+    # ── properties ───────────────────────────────────────────────────────
 
     @property
     def name(self) -> str:
-        """Short name of the data plot"""
-        if self._is_index:
-            # Use LabTalk to get the plot name
-            self.api_core.LT_execute(f"plot_name = layer.plot({self._plot + 1}).name$")
-            return self.api_core.LT_get_str("plot_name")
-        return self._plot.Name
-
-    # @property
-    # def parent_layer(self) -> 'GraphLayer':
-    #     """Parent graph layer"""
-    #     return GraphLayer(self._plot.Parent, self.api_core)
+        """Dataset name of the data plot."""
+        return self._plot.GetDatasetName()
 
     @property
     def worksheet(self):
-        """Worksheet containing the plotted data"""
-        if self._is_index:
-            # Use LabTalk to get the worksheet name
-            self.api_core.LT_execute(f"ws_name = layer.plot({self._plot + 1}).name$")
-            ws_name = self.api_core.LT_get_str("ws_name")
-            # Get the worksheet object from the active page
-            self.api_core.LT_execute(f"ws = {ws_name}")
-            # Return None for now since we can't easily get the worksheet object
-            return None
+        """Worksheet containing the plotted data."""
         worksheet_obj = oext.DataPlot_GetWorksheet(self._plot)
         return Worksheet(worksheet_obj, self.api_core)
-
-    def _plot_range(self) -> Optional[str]:
-        """Return the LabTalk range string for this plot, e.g. ``[Graph1]1!(1)``.
-
-        Returns None when the page/layer context is unavailable.
-        """
-        if self._page_name is not None and self._layer_index is not None:
-            # Range notation: [PageName]LayerIndex(1-based)!(PlotIndex(1-based))
-            return f"[{self._page_name}]{self._layer_index + 1}!({self._plot + 1})"
-        return None
 
     @property
     def color(self) -> int:
         """Line/symbol color as an Origin color value.
 
-        Reads the plot color via ``layer.plot(n).color`` in LabTalk after
-        activating the parent graph layer.  For index colors (1-24) the
-        returned integer matches ``OriginColorIndex``.  For custom RGB
-        colors the returned value is the Windows COLORREF integer
-        (R + G*256 + B*65536).
+        Reads the plot color via ``[Page]!layerN.plot(M).color`` in LabTalk.
+        For index colors (1-24) the returned integer matches
+        ``OriginColorIndex``.  For custom RGB colors the returned value is
+        the Windows COLORREF integer (R + G*256 + B*65536).
 
         Note: Colors applied at plot-creation time (via ``add_xy_plot``'s
         *color* argument) are stored in the group's style and may only be
@@ -121,64 +165,117 @@ class DataPlot:
         (``layer.group_plots(GroupMode.NONE)``).
         Setting accepts an int, (R,G,B) tuple, or ``OriginColorIndex``.
         """
-        if self._page_name is None or self._layer_index is None:
-            return 0
-        self.api_core.LT_execute(f"win -a {self._page_name}")
-        self.api_core.LT_execute(f"layer {self._layer_index + 1}")
-        self.api_core.LT_execute(
-            f"colorTmpVal = layer.plot({self._plot + 1}).color"
-        )
-        raw = self.api_core.LT_get_var("colorTmpVal")
-        import math
+        page_name, layer_id = self._page_context()
+        plot_id = self._resolve_plot_id()
+        self.api_core.LT_execute(layer_plot_get(page_name, layer_id, plot_id, "color", "_dp_color"))
+        raw = self.api_core.LT_get_var("_dp_color")
         if math.isnan(raw):
-            return 0
+            raise OriginCommandResponceError(f"NaN value is received while getting plot color. (page={page_name}, layer={layer_id}, plot={plot_id})")
         return int(raw)
 
     @color.setter
     def color(self, value: ColorSpec) -> None:
         """Set the plot color.
 
-        Activates the parent graph layer then assigns the color via
-        ``layer.plot(n).color``.  Works reliably after ungrouping
+        Works reliably after ungrouping
         (``layer.group_plots(GroupMode.NONE)``).
         """
+        page_name, layer_id = self._page_context()
+        plot_id = self._resolve_plot_id()
         color_str = color_to_lt_str(value)
-        if self._page_name is not None and self._layer_index is not None:
-            self.api_core.LT_execute(f"win -a {self._page_name}")
-            self.api_core.LT_execute(f"layer {self._layer_index + 1}")
-        self.api_core.LT_execute(
-            f"layer.plot({self._plot + 1}).color = {color_str}"
-        )
+        self.api_core.LT_execute(layer_plot_set(page_name, layer_id, plot_id, "color", color_str))
 
     @property
     def color_map(self) -> ColorMap:
+        """Color map used by the data plot."""
         color_map_str = oext.DataPlot_GetColorMap(self._plot)
         return ColorMap(color_map_str)
 
-
     @color_map.setter
     def color_map(self, value: ColorMap) -> None:
-        """Set color map for the data plot"""
+        """Set color map for the data plot."""
         try:
             oext.DataPlot_SetColorMap(self._plot, value.value)
         except Exception as e:
-            print(f"Failed to set color map: {e}")
-            # Try alternative method
-            try:
-                self._plot.Execute(f"set {self._plot.Range} -cmap {value.value}")
-            except Exception as e2:
-                print(f"Alternative colormap setting also failed: {e2}")
-                raise RuntimeError(f"Failed to set color map: {e2}") from e2
+            raise RuntimeError(f"Failed to set color map: {e}") from e
 
     @property
-    def shape_list(self) -> list[int]:
-        """Get shape list"""
-        return oext.DataPlot_GetShapeList(self._plot)
+    def symbol_size(self) -> float:
+        """Symbol (marker) size for this plot.
 
-    @shape_list.setter
-    def shape_list(self, value: list[int]) -> None:
-        """Set shape list for the data plot"""
-        oext.DataPlot_SetShapeList(self._plot, value)
+        Reads and writes ``[Page]!layerN.plot(M).symbol.size`` via LabTalk.
+
+        Raises:
+            ValueError: If the plot type does not support symbols.
+            OriginCommandResponceError: If LabTalk returns NaN.
+        """
+        self._assert_has_symbol()
+        page_name, layer_id = self._page_context()
+        plot_id = self._resolve_plot_id()
+        self.api_core.LT_execute(
+            layer_plot_get(page_name, layer_id, plot_id, "symbol.size", "_dp_symsize")
+        )
+        raw = self.api_core.LT_get_var("_dp_symsize")
+        if math.isnan(raw):
+            raise OriginCommandResponceError(
+                f"NaN returned while getting symbol.size for plot '{self.name}'."
+            )
+        return float(raw)
+
+    @symbol_size.setter
+    def symbol_size(self, value: float) -> None:
+        """Set the symbol (marker) size.
+
+        Uses ``set <dataset> -z <size>`` LabTalk command.
+
+        Args:
+            value: Symbol size as a positive float.
+
+        Raises:
+            ValueError: If the plot type does not support symbols, or value is not positive.
+        """
+        self._assert_has_symbol()
+        if value <= 0:
+            raise ValueError(f"symbol_size must be positive, got {value}")
+        self.api_core.LT_execute(plot_set_symbol_size(self._plot.GetDatasetName(), value))
+
+    @property
+    def symbol_kind(self) -> MarkerShape:
+        """Symbol (marker) shape for this plot.
+
+        Reads and writes ``[Page]!layerN.plot(M).symbol.kind`` via LabTalk.
+
+        Raises:
+            ValueError: If the plot type does not support symbols.
+            OriginCommandResponceError: If LabTalk returns NaN.
+        """
+        self._assert_has_symbol()
+        page_name, layer_id = self._page_context()
+        plot_id = self._resolve_plot_id()
+        self.api_core.LT_execute(
+            layer_plot_get(page_name, layer_id, plot_id, "symbol.kind", "_dp_symkind")
+        )
+        raw = self.api_core.LT_get_var("_dp_symkind")
+        if math.isnan(raw):
+            raise OriginCommandResponceError(
+                f"NaN returned while getting symbol.kind for plot '{self.name}'."
+            )
+        return MarkerShape(int(raw))
+
+    @symbol_kind.setter
+    def symbol_kind(self, value: MarkerShape) -> None:
+        """Set the symbol (marker) shape.
+
+        Uses ``set <dataset> -k <kind>`` LabTalk command.
+
+        Args:
+            value: A ``MarkerShape`` enum member.
+
+        Raises:
+            ValueError: If the plot type does not support symbols.
+        """
+        self._assert_has_symbol()
+        self.api_core.LT_execute(plot_set_symbol_kind(self._plot.GetDatasetName(), value.value))
 
     def change_data(self, data_obj, designation: str = 'Y', keep_modifiers: bool = False) -> bool:
         """
@@ -906,19 +1003,24 @@ class GraphLayer(OriginObjectWrapper[oext_types.GraphLayer]):
         """Get the graph layer ID"""
         return self._id
 
+    def _get_data_plot_list(self) -> list[DataPlot]:
+        """Return all DataPlot objects in this layer.
+
+        Iterates over the underlying OriginExt GraphLayer's DataPlots
+        collection and wraps each entry as a ``DataPlot`` instance.
+
+        Returns:
+            list[DataPlot]: All plots in this layer.
+        """
+        plots: list[DataPlot] = []
+        for raw_plot in self._obj.DataPlots:
+            plots.append(DataPlot(raw_plot, self))
+        return plots
+
     @property
-    def data_plots(self):
-        """Collection of data plots in this layer"""
-        # Ensure this layer is active
-        self.api_core.LT_execute("layer -a")
-        # Force layer refresh
-        self.api_core.LT_execute("layer -u")
-        # Use LabTalk to get plot count instead of direct access
-        self.api_core.LT_execute("layer -c")
-        # Return a list with index-based DataPlot objects
-        plot_count = self.api_core.LT_get_var("count")
-        print(f"[DEBUG] Plot count: {plot_count}")
-        return [DataPlot(i, self.api_core) for i in range(int(plot_count))]
+    def data_plots(self) -> list[DataPlot]:
+        """All data plots in this layer as a list."""
+        return self._get_data_plot_list()
 
     @property
     def graph_objects(self):
@@ -926,16 +1028,13 @@ class GraphLayer(OriginObjectWrapper[oext_types.GraphLayer]):
         return self._obj.GraphObjects
 
     def __iter__(self) -> Iterator[DataPlot]:
-        """Iterate over data plots"""
-        # Use LabTalk to get plot count
-        self.api_core.LT_execute("layer -c")
-        plot_count = self.api_core.LT_get_var("count")
-        for i in range(int(plot_count)):
-            yield DataPlot(i, self.api_core)
+        """Iterate over data plots in this layer."""
+        return iter(self._get_data_plot_list())
 
     def __getitem__(self, index: int) -> DataPlot:
-        """Get data plot by index"""
-        return DataPlot(index, self.api_core)
+        """Get data plot by 0-based index."""
+        plots = self._get_data_plot_list()
+        return plots[index]
 
     def get_axis(self, axis_type: AxisType) -> Axis:
         """
@@ -995,11 +1094,14 @@ class GraphLayer(OriginObjectWrapper[oext_types.GraphLayer]):
         if self._parent_page is not None:
             parent_page_name = self._parent_page.name
         else:
-            # Fallback: try to get from layer object
             try:
                 parent_page_name = self._obj.GetPage().GetName()
-            except:
-                # Final fallback: use a generic name
+            except Exception as e:
+                warnings.warn(
+                    f"Could not retrieve parent page name from layer object: {e}. Falling back to 'Graph1'.",
+                    RuntimeWarning,
+                    stacklevel=2,
+                )
                 parent_page_name = "Graph1"
 
         layer_name = f"Layer{self._id + 1}"
@@ -1014,25 +1116,12 @@ class GraphLayer(OriginObjectWrapper[oext_types.GraphLayer]):
             f"ogl:={graph_full_name}!"
         )
 
-        print(f"[DEBUG] Executing plot command: {cmd}")
-
-        # Use API core for LabTalk execution
         self.api_core.LT_execute(cmd)
 
-        print("[DEBUG] Plot command executed successfully")
-
-        # Activate the target graph layer so that LabTalk's 'layer' object
-        # points to it before querying the plot count.
-        self.api_core.LT_execute(f"win -a {parent_page_name}")
-        self.api_core.LT_execute(f"layer {self._id + 1}")
-        self.api_core.LT_execute("layer -c")  # stores count in 'count' variable
-        plot_count = self.api_core.LT_get_var("count")
-        plot_index = int(plot_count) - 1
-        print(f"[DEBUG] Plot count: {plot_count}, plot index: {plot_index}")
-
-        return DataPlot(plot_index, self.api_core,
-                        page_name=parent_page_name,
-                        layer_index=self._id)
+        plots = self._get_data_plot_list()
+        if not plots:
+            raise OriginNotFoundError("No DataPlot found in layer after executing plotxy.")
+        return plots[-1]
 
     def group_plots(self, group_mode: Optional[GroupMode] = None) -> None:
         """

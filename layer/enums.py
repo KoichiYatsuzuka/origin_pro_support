@@ -164,6 +164,36 @@ class TickType(Enum):
     IN_OUT = 3
 
 
+# ================== Symbol Enums ==================
+
+class MarkerShape(Enum):
+    """Enumeration for plot symbol (marker) shapes.
+
+    The integer values correspond to Origin's internal symbol kind IDs used in
+    LabTalk ``layer.plot(n).symbol.kind``.
+
+    Ref: https://www.originlab.com/doc/LabTalk/ref/Layer-plot-obj
+    """
+    NO_SYMBOL = 0
+    SQUARE = 1
+    CIRCLE = 2
+    TRIANGLE_UP = 3
+    TRIANGLE_DOWN = 4
+    DIAMOND = 5
+    CROSS = 6
+    CROSS_X = 7
+    STAR = 8
+    HEXAGON = 9
+    HALF_CIRCLE_UP = 10
+    HALF_CIRCLE_DOWN = 11
+    HALF_CIRCLE_LEFT = 12
+    HALF_CIRCLE_RIGHT = 13
+    TRIANGLE_LEFT = 14
+    TRIANGLE_RIGHT = 15
+    PENTAGON = 16
+    SPHERE = 17
+
+
 # ================== Legend Enums ==================
 
 class LegendLayout(Enum):
@@ -195,6 +225,8 @@ __all__ = [
     'AxisType',
     'ScaleType',
     'TickType',
+    # Symbol enums
+    'MarkerShape',
     # Legend enums
     'LegendLayout',
 ]

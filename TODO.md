@@ -31,7 +31,7 @@
   - 対象クラス: `Axis`
   - 実装方針: LabTalk `x.showLabel` 等を使った show/hide メソッドを追加
 
-- [ ] 6. **マーカーサイズ編集**
+- [x] 6. **マーカーサイズ編集**
   - `DataPlot` にシンボルサイズの get/set プロパティがない
   - 対象クラス: `DataPlot`
   - 実装方針: LabTalk `layer.plot(n).symbol.size` を使ったプロパティを追加
@@ -55,7 +55,7 @@
   - 対象クラス: `Axis`
   - 修正方針: `Axis` クラスに `api_core` を保持させ、`api_core.LT_execute()` / `api_core.LT_get_var()` に置き換える
 
-- [ ] 10. **マーカー形状編集**（要検証）
+- [x] 10. **マーカー形状編集**（要検証）
   - `DataPlot.shape_list` (get/set) は `DataPlot_GetShapeList` / `DataPlot_SetShapeList` 経由で実装済み
   - 単一プロットのシンボル形状を個別に設定できるか未検証
   - 対象クラス: `DataPlot`
