@@ -137,6 +137,8 @@ class AxisType(Enum):
     Y = 2
     Z = 3
     ERROR = 4
+    X2 = 5
+    Y2 = 6
 
 
 class ScaleType(Enum):

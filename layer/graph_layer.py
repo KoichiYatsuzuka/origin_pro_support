@@ -15,10 +15,11 @@ from typing import Optional, Union, TYPE_CHECKING, List
 from collections.abc import Iterator
 
 from ..base import OriginObjectWrapper
-from .enums import ColorMap, AxisType, XYPlotType, GroupMode, OriginColorIndex, ColorSpec, color_to_lt_str, LegendLayout
+from .enums import ColorMap, AxisType, XYPlotType, GroupMode, OriginColorIndex, ColorSpec, color_to_lt_str, LegendLayout, TickType
 from .worksheet import Worksheet
 
 from ..base import APP
+from ..lab_talk.lab_talk_commands import axis_pg, axis_ps
 
 if TYPE_CHECKING:
     from ..pages import GraphPage
@@ -421,21 +422,43 @@ class Axis:
 
         Args:
             graph_layer: Parent GraphLayer object
-            axis_type: Type of axis (X, Y, Z, or ERROR)
+            axis_type: Type of axis (X, Y, Z, ERROR, X2, or Y2)
         """
         self._axis_type = axis_type
-        self._obj = self._get_originext_axis(graph_layer)
+        self._api_core: APP = graph_layer.api_core
+        self._page_name: Optional[str] = (
+            graph_layer._parent_page.name if graph_layer._parent_page is not None else None
+        )
+        self._layer_id: int = graph_layer._id
 
-    def _get_originext_axis(self, graph_layer: 'GraphLayer'):
-        """Get the OriginExt axis object from a GraphLayer wrapper"""
-        obj = graph_layer._obj
-        # Ensure it's the correct type by checking if it has axis methods
-        return obj
+    # ── helpers ──────────────────────────────────────────────────────────
+
+    def _activate(self) -> None:
+        """Activate the parent layer so LabTalk layer object points to it."""
+        if self._page_name is not None:
+            self._api_core.LT_execute(f"win -a {self._page_name}")
+            self._api_core.LT_execute(f"layer {self._layer_id + 1}")
+
+    def _get_axis_letter(self) -> str:
+        """Get the LabTalk axis object prefix for this axis type."""
+        _map = {
+            AxisType.X: "x",
+            AxisType.Y: "y",
+            AxisType.Z: "z",
+            AxisType.ERROR: "e",
+            AxisType.X2: "x2",
+            AxisType.Y2: "y2",
+        }
+        return _map.get(self._axis_type, "x")
+
+    # ── axis type ────────────────────────────────────────────────────────
 
     @property
     def axis_type(self) -> AxisType:
         """Get axis type"""
         return self._axis_type
+
+    # ── range ────────────────────────────────────────────────────────────
 
     def get_range(self) -> tuple[float, float]:
         """
@@ -444,9 +467,15 @@ class Axis:
         Returns:
             tuple: (min_value, max_value)
         """
-        axis_letter = self._get_axis_letter()
-        min_val = self._obj.LT_get_float(f"{axis_letter}.from")
-        max_val = self._obj.LT_get_float(f"{axis_letter}.to")
+        import math
+        ax = self._get_axis_letter()
+        self._activate()
+        self._api_core.LT_execute(f"_ax_from = layer.{ax}.from")
+        self._api_core.LT_execute(f"_ax_to = layer.{ax}.to")
+        min_val = self._api_core.LT_get_var("_ax_from")
+        max_val = self._api_core.LT_get_var("_ax_to")
+        min_val = 0.0 if math.isnan(min_val) else float(min_val)
+        max_val = 1.0 if math.isnan(max_val) else float(max_val)
         return (min_val, max_val)
 
     def set_range(self, min_val: float, max_val: float) -> None:
@@ -456,13 +485,16 @@ class Axis:
         Args:
             min_val: Minimum value
             max_val: Maximum value
-
-        Returns:
-            bool: True if successful
         """
-        axis_letter = self._get_axis_letter()
-        self._obj.LT_execute(f"{axis_letter}.from = {min_val}; {axis_letter}.to = {max_val}")
-        return
+        ax = self._get_axis_letter()
+        self._activate()
+        self._api_core.LT_execute(
+            f"layer.{ax}.rescale = 1; "
+            f"layer.{ax}.from = {min_val}; "
+            f"layer.{ax}.to = {max_val}"
+        )
+
+    # ── reverse ──────────────────────────────────────────────────────────
 
     def get_reverse(self) -> bool:
         """
@@ -471,8 +503,14 @@ class Axis:
         Returns:
             bool: True if reversed
         """
-        axis_letter = self._get_axis_letter()
-        return bool(self._obj.LT_get_int(f"{axis_letter}.reverse"))
+        import math
+        ax = self._get_axis_letter()
+        self._activate()
+        self._api_core.LT_execute(f"_ax_rev = layer.{ax}.reverse")
+        val = self._api_core.LT_get_var("_ax_rev")
+        if math.isnan(val):
+            return False
+        return bool(int(val))
 
     def set_reverse(self, reverse: bool) -> None:
         """
@@ -480,26 +518,335 @@ class Axis:
 
         Args:
             reverse: True to reverse the axis
+        """
+        ax = self._get_axis_letter()
+        self._activate()
+        self._api_core.LT_execute(f"layer.{ax}.reverse = {1 if reverse else 0}")
+
+    # ── tick marks (TODO-2) ───────────────────────────────────────────────
+
+    def _get_ticks_raw(self, ax: str) -> int:
+        """Read the raw ``layer.axis.ticks`` bitmask value."""
+        import math
+        self._api_core.LT_execute(f"_ax_ticks = layer.{ax}.ticks")
+        val = self._api_core.LT_get_var("_ax_ticks")
+        return 0 if math.isnan(val) else int(val)
+
+    def _set_ticks_raw(self, ax: str, raw: int) -> None:
+        """Write the raw ``layer.axis.ticks`` bitmask value."""
+        self._api_core.LT_execute(f"layer.{ax}.ticks = {raw}")
+
+    def get_major_tick(self) -> TickType:
+        """
+        Get the major tick style for this axis.
+
+        Reads ``layer.axis.ticks`` and extracts bits 0-1 (major in/out).
+        Ref: https://www.originlab.com/doc/LabTalk/ref/Layer-Axis-obj
 
         Returns:
-            bool: True if successful
+            TickType: Current major tick style.
         """
-        axis_letter = self._get_axis_letter()
-        self._obj.LT_execute(f"{axis_letter}.reverse = {1 if reverse else 0}")
-        return 
+        ax = self._get_axis_letter()
+        self._activate()
+        raw = self._get_ticks_raw(ax)
+        return TickType(raw & 0x03)
 
-    def _get_axis_letter(self) -> str:
-        """Get the axis letter for LabTalk commands"""
+    def set_major_tick(self, tick_type: TickType) -> None:
+        """
+        Set the major tick style for this axis.
+
+        Modifies bits 0-1 of ``layer.axis.ticks`` while preserving the
+        minor tick bits (2-3).
+        Ref: https://www.originlab.com/doc/LabTalk/ref/Layer-Axis-obj
+
+        Args:
+            tick_type: TickType enum value.
+        """
+        ax = self._get_axis_letter()
+        self._activate()
+        raw = self._get_ticks_raw(ax)
+        new_raw = (raw & ~0x03) | (tick_type.value & 0x03)
+        self._set_ticks_raw(ax, new_raw)
+
+    def get_minor_tick(self) -> TickType:
+        """
+        Get the minor tick style for this axis.
+
+        Reads ``layer.axis.ticks`` and extracts bits 2-3 (minor in/out),
+        shifting them down to match TickType values.
+        Ref: https://www.originlab.com/doc/LabTalk/ref/Layer-Axis-obj
+
+        Returns:
+            TickType: Current minor tick style.
+        """
+        ax = self._get_axis_letter()
+        self._activate()
+        raw = self._get_ticks_raw(ax)
+        return TickType((raw >> 2) & 0x03)
+
+    def set_minor_tick(self, tick_type: TickType) -> None:
+        """
+        Set the minor tick style for this axis.
+
+        Modifies bits 2-3 of ``layer.axis.ticks`` while preserving the
+        major tick bits (0-1).
+        Ref: https://www.originlab.com/doc/LabTalk/ref/Layer-Axis-obj
+
+        Args:
+            tick_type: TickType enum value.
+        """
+        ax = self._get_axis_letter()
+        self._activate()
+        raw = self._get_ticks_raw(ax)
+        new_raw = (raw & ~0x0C) | ((tick_type.value & 0x03) << 2)
+        self._set_ticks_raw(ax, new_raw)
+
+    # ── tick spacing / count ─────────────────────────────────────────────
+
+    def get_major_tick_spacing(self) -> float:
+        """
+        Get the major tick increment for this axis.
+
+        Corresponds to: ``layer.axis.inc`` in LabTalk.
+        Ref: https://www.originlab.com/doc/LabTalk/ref/Layer-Axis-obj
+
+        Returns:
+            float: Current major tick increment value.
+        """
+        import math
+        ax = self._get_axis_letter()
+        self._activate()
+        self._api_core.LT_execute(f"_ax_inc = layer.{ax}.inc")
+        val = self._api_core.LT_get_var("_ax_inc")
+        return 0.0 if math.isnan(val) else float(val)
+
+    def set_major_tick_spacing(self, spacing: Union[int, float]) -> None:
+        """
+        Set the major tick increment for this axis.
+
+        Corresponds to: ``layer.axis.inc = value`` in LabTalk.
+
+        Args:
+            spacing: Major tick increment (positive int or float).
+        """
+        if spacing <= 0:
+            raise ValueError(f"spacing must be positive, got {spacing}")
+        ax = self._get_axis_letter()
+        self._activate()
+        self._api_core.LT_execute(f"layer.{ax}.inc = {spacing}")
+
+    def get_minor_tick_count(self) -> int:
+        """
+        Get the number of minor ticks between major ticks for this axis.
+
+        Uses ``axis -pg axis M varName`` (type ``M`` = number of Minor ticks).
+        Ref: https://www.originlab.com/doc/LabTalk/ref/Axis-cmd
+
+        Returns:
+            int: Current number of minor ticks between major ticks.
+        """
+        import math
+        pg_ax = self._get_axis_pg_letter()
+        self._activate()
+        self._api_core.LT_execute(axis_pg(pg_ax, "M", "_ax_minor"))
+        val = self._api_core.LT_get_var("_ax_minor")
+        return 0 if math.isnan(val) else int(val)
+
+    def set_minor_tick_count(self, count: int) -> None:
+        """
+        Set the number of minor ticks between major ticks for this axis.
+
+        Uses ``axis -ps axis M value`` (type ``M`` = number of Minor ticks).
+        Ref: https://www.originlab.com/doc/LabTalk/ref/Axis-cmd
+
+        Args:
+            count: Number of minor ticks between major ticks (non-negative int).
+        """
+        if count < 0:
+            raise ValueError(f"count must be non-negative, got {count}")
+        pg_ax = self._get_axis_pg_letter()
+        self._activate()
+        self._api_core.LT_execute(axis_ps(pg_ax, "M", count))
+
+    # ── opposite axis visibility (TODO-3) ─────────────────────────────────
+
+    def show_opposite_axis(self) -> None:
+        """
+        Show the opposite (top/right) axis line for this axis.
+
+        For X-axis: shows the top axis (``x2.showAxes``).
+        For Y-axis: shows the right axis (``y2.showAxes``).
+        Only applicable for X and Y axes; raises ValueError otherwise.
+
+        Corresponds to: ``x2.showAxes = 1`` / ``y2.showAxes = 1`` in LabTalk.
+        Ref: https://www.originlab.com/doc/LabTalk/ref/Layer-Axis-obj
+        """
+        ax2 = self._get_opposite_axis_letter()
+        self._activate()
+        self._api_core.LT_execute(f"layer.{ax2}.showAxes = 1")
+
+    def hide_opposite_axis(self) -> None:
+        """
+        Hide the opposite (top/right) axis line for this axis.
+
+        For X-axis: hides the top axis (``x2.showAxes``).
+        For Y-axis: hides the right axis (``y2.showAxes``).
+        Only applicable for X and Y axes; raises ValueError otherwise.
+
+        Corresponds to: ``x2.showAxes = 0`` / ``y2.showAxes = 0`` in LabTalk.
+        """
+        ax2 = self._get_opposite_axis_letter()
+        self._activate()
+        self._api_core.LT_execute(f"layer.{ax2}.showAxes = 0")
+
+    def get_opposite_axis_visible(self) -> bool:
+        """
+        Get whether the opposite (top/right) axis is visible.
+
+        Returns:
+            bool: True if visible.
+        """
+        import math
+        ax2 = self._get_opposite_axis_letter()
+        self._activate()
+        self._api_core.LT_execute(f"_ax_show = layer.{ax2}.showAxes")
+        val = self._api_core.LT_get_var("_ax_show")
+        if math.isnan(val):
+            return False
+        return bool(int(val))
+
+    def _get_axis_pg_letter(self) -> str:
+        """Return the axis identifier for ``axis -pg/-ps`` commands (X or Y only).
+
+        Raises:
+            ValueError: If this axis type is not supported by axis -pg/-ps.
+        """
+        _map = {
+            AxisType.X:  "X",
+            AxisType.Y:  "Y",
+            AxisType.X2: "X",
+            AxisType.Y2: "Y",
+        }
+        letter = _map.get(self._axis_type)
+        if letter is None:
+            raise ValueError(
+                f"Axis type {self._axis_type.name} is not supported by axis -pg/-ps. "
+                "Only X, Y, X2, and Y2 axes are supported."
+            )
+        return letter
+
+    def _get_opposite_axis_letter(self) -> str:
+        """Return the LabTalk object name for the opposite axis (x2 or y2).
+
+        Raises:
+            ValueError: If this axis type has no opposite axis.
+        """
         if self._axis_type == AxisType.X:
-            return "X"
-        elif self._axis_type == AxisType.Y:
-            return "Y"
-        elif self._axis_type == AxisType.Z:
-            return "Z"
-        elif self._axis_type == AxisType.ERROR:
-            return "E"
-        else:
-            return "X"  # Default fallback
+            return "x2"
+        if self._axis_type == AxisType.Y:
+            return "y2"
+        raise ValueError(
+            f"Axis type {self._axis_type.name} does not have an opposite axis. "
+            "Only X and Y axes support show/hide of the opposite axis."
+        )
+
+    def _get_title_obj_name(self) -> str:
+        """Return the LabTalk graphic object name for the axis title.
+
+        Origin uses pre-defined named text objects for axis titles:
+          xb = bottom X axis title
+          xl = left Y axis title
+          xt = top X2 axis title
+          yr = right Y2 axis title
+
+        Raises:
+            ValueError: If this axis type has no dedicated title object.
+        """
+        _map = {
+            AxisType.X:  "xb",
+            AxisType.Y:  "yl",
+            AxisType.X2: "xt",
+            AxisType.Y2: "yr",
+        }
+        obj_name = _map.get(self._axis_type)
+        if obj_name is None:
+            raise ValueError(
+                f"Axis type {self._axis_type.name} does not have a title object. "
+                "Only X, Y, X2, and Y2 axes support label_text."
+            )
+        return obj_name
+
+    # ── axis label text (TODO-4) ──────────────────────────────────────────
+
+    @property
+    def label_text(self) -> str:
+        """
+        Get the axis title text.
+
+        Corresponds to: ``xb.text$`` / ``yl.text$`` etc. in LabTalk.
+        Ref: https://www.originlab.com/doc/LabTalk/guide/Creating-and-Accessing-Graphical-objs
+
+        Returns:
+            str: Current axis title string.
+        """
+        obj = self._get_title_obj_name()
+        self._activate()
+        self._api_core.LT_execute(f"string _ax_lbl$; _ax_lbl$ = {obj}.text$")
+        return self._api_core.LT_get_str("_ax_lbl")
+
+    @label_text.setter
+    def label_text(self, value: str) -> None:
+        """
+        Set the axis title text.
+
+        Corresponds to: ``xb.text$ = "..."`` / ``yl.text$ = "..."`` etc. in LabTalk.
+
+        Args:
+            value: New title string for the axis.
+        """
+        obj = self._get_title_obj_name()
+        escaped = value.replace('"', '\\"')
+        self._activate()
+        self._api_core.LT_execute(f'{obj}.text$ = "{escaped}"')
+
+    # ── axis label visibility (TODO-5) ───────────────────────────────────
+
+    def show_label(self) -> None:
+        """
+        Show the axis label (title).
+
+        Corresponds to: ``xb.show = 1`` / ``yl.show = 1`` etc. in LabTalk.
+        Ref: https://www.originlab.com/doc/LabTalk/ref/Graphic-objs
+        """
+        obj = self._get_title_obj_name()
+        self._activate()
+        self._api_core.LT_execute(f"{obj}.show = 1")
+
+    def hide_label(self) -> None:
+        """
+        Hide the axis label (title).
+
+        Corresponds to: ``xb.show = 0`` / ``yl.show = 0`` etc. in LabTalk.
+        """
+        obj = self._get_title_obj_name()
+        self._activate()
+        self._api_core.LT_execute(f"{obj}.show = 0")
+
+    def get_label_visible(self) -> bool:
+        """
+        Get whether the axis label (title) is currently shown.
+
+        Returns:
+            bool: True if the label is visible.
+        """
+        import math
+        obj = self._get_title_obj_name()
+        self._activate()
+        self._api_core.LT_execute(f"_ax_sl = {obj}.show")
+        val = self._api_core.LT_get_var("_ax_sl")
+        if math.isnan(val):
+            return True
+        return bool(int(val))
 
 
 # ================== GraphLayer Class ==================
@@ -569,7 +916,7 @@ class GraphLayer(OriginObjectWrapper[oext_types.GraphLayer]):
         Get an axis object for the specified axis type.
 
         Args:
-            axis_type: Type of axis (X, Y, Z, or ERROR)
+            axis_type: Type of axis (X, Y, Z, ERROR, X2, or Y2)
 
         Returns:
             Axis: Axis wrapper object
