@@ -1,6 +1,205 @@
 from typing import Union
 
 
+# ── Window helpers ─────────────────────────────────────────────────────────────
+
+def win_activate(page_name: str) -> str:
+    """Activate the specified window.
+
+    ### page_name
+        Short name of the page to activate.
+
+    Generates: ``win -a <page_name>``
+
+    Ref: https://www.originlab.com/doc/LabTalk/ref/Win-cmd
+    """
+    return f"win -a {page_name}"
+
+
+# ── Legend graphic object helpers ──────────────────────────────────────────────
+# Ref: https://www.originlab.com/doc/LabTalk/ref/Graphic-objs
+#      https://www.originlab.com/doc/LabTalk/ref/Legend-cmd
+#
+# These functions assume the parent page has been activated first so that
+# LabTalk's ``legend`` object resolves to the correct layer.
+
+
+def legend_get_num(prop: str, var: str) -> str:
+    """Get a numeric property of the active layer's legend object.
+
+    ### prop
+        Property name, e.g. ``"show"``, ``"fsize"``, ``"background"``,
+        ``"x"``, ``"y"``, ``"dx"``, ``"dy"``.
+
+    ### var
+        LabTalk variable name to receive the value.
+
+    Generates: ``var = legend.prop``
+    """
+    return f"{var} = legend.{prop}"
+
+
+def legend_set_num(prop: str, value: Union[int, float]) -> str:
+    """Set a numeric property of the active layer's legend object.
+
+    ### prop
+        Property name, e.g. ``"show"``, ``"fsize"``, ``"background"``,
+        ``"x"``, ``"y"``.
+
+    ### value
+        Numeric value to assign.
+
+    Generates: ``legend.prop = value``
+    """
+    return f"legend.{prop} = {value}"
+
+
+def legend_get_str(prop: str, var: str) -> str:
+    """Get a string property of the active layer's legend object.
+
+    ### prop
+        String property name without ``$``, e.g. ``"text"``.
+
+    ### var
+        LabTalk string variable name to receive the value (without ``$``).
+
+    Generates: ``var$ = legend.prop$``
+    """
+    return f"{var}$ = legend.{prop}$"
+
+
+def legend_set_str(prop: str, value: str) -> str:
+    """Set a string property of the active layer's legend object.
+
+    *value* must already be escaped (double-quotes inside the string should
+    be backslash-escaped before calling this function).
+
+    ### prop
+        String property name without ``$``, e.g. ``"text"``.
+
+    ### value
+        Escaped string value (without surrounding double-quotes).
+
+    Generates: ``legend.prop$ = "value"``
+    """
+    return f'legend.{prop}$ = "{value}"'
+
+
+def legend_update() -> str:
+    """Create or update the legend on the active layer.
+
+    Generates: ``legend``
+
+    Ref: https://www.originlab.com/doc/LabTalk/ref/Legend-cmd
+    """
+    return "legend"
+
+
+def legend_reconstruct() -> str:
+    """Reconstruct the legend to best-fit the current plots.
+
+    Equivalent to menu Graph > Legend > Reconstruct Legend.
+
+    Generates: ``legend -r``
+
+    Ref: https://www.originlab.com/doc/LabTalk/ref/Legend-cmd
+    """
+    return "legend -r"
+
+
+def legend_reset_position() -> str:
+    """Reset the legend to its default position.
+
+    Generates: ``legend -d``
+
+    Ref: https://www.originlab.com/doc/LabTalk/ref/Legend-cmd
+    """
+    return "legend -d"
+
+
+def legend_set_layout(option: str) -> str:
+    """Rearrange legend entries.
+
+    ### option
+        Layout option flag without leading ``-``, e.g. ``"ah"`` for horizontal
+        or ``"av"`` for vertical.
+
+    Generates: ``legend -<option>``
+
+    Ref: https://www.originlab.com/doc/LabTalk/ref/Legend-cmd
+    """
+    return f"legend -{option}"
+
+
+# ── Active-layer axis range helpers ───────────────────────────────────────────
+# These use the unqualified ``layer.axis.prop`` form and therefore require
+# the parent page to have been activated beforehand.
+
+
+def active_layer_x_get_from(var: str) -> str:
+    """Get the x-axis ``from`` (minimum) value of the active layer.
+
+    Generates: ``var = layer.x.from``
+    """
+    return f"{var} = layer.x.from"
+
+
+def active_layer_x_get_to(var: str) -> str:
+    """Get the x-axis ``to`` (maximum) value of the active layer.
+
+    Generates: ``var = layer.x.to``
+    """
+    return f"{var} = layer.x.to"
+
+
+def active_layer_y_get_from(var: str) -> str:
+    """Get the y-axis ``from`` (minimum) value of the active layer.
+
+    Generates: ``var = layer.y.from``
+    """
+    return f"{var} = layer.y.from"
+
+
+def active_layer_y_get_to(var: str) -> str:
+    """Get the y-axis ``to`` (maximum) value of the active layer.
+
+    Generates: ``var = layer.y.to``
+    """
+    return f"{var} = layer.y.to"
+
+
+def active_layer_x_set_from(value: Union[int, float]) -> str:
+    """Set the x-axis ``from`` (minimum) value of the active layer.
+
+    Generates: ``layer.x.from = value``
+    """
+    return f"layer.x.from = {value}"
+
+
+def active_layer_x_set_to(value: Union[int, float]) -> str:
+    """Set the x-axis ``to`` (maximum) value of the active layer.
+
+    Generates: ``layer.x.to = value``
+    """
+    return f"layer.x.to = {value}"
+
+
+def active_layer_y_set_from(value: Union[int, float]) -> str:
+    """Set the y-axis ``from`` (minimum) value of the active layer.
+
+    Generates: ``layer.y.from = value``
+    """
+    return f"layer.y.from = {value}"
+
+
+def active_layer_y_set_to(value: Union[int, float]) -> str:
+    """Set the y-axis ``to`` (maximum) value of the active layer.
+
+    Generates: ``layer.y.to = value``
+    """
+    return f"layer.y.to = {value}"
+
+
 def axis_pg(
     axis: str,
     type: str,

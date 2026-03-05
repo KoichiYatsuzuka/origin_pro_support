@@ -305,17 +305,47 @@ class GraphPage(Page[oext_types.GraphPage]):
 
     @property
     def width(self) -> float:
-        """Width of the graph page"""
-        return self._obj.Width
+        """Width of the graph page in **inches**.
+
+        Internally Origin stores page dimensions in units of 1/600 inch.
+        This property converts to/from inches automatically.
+        """
+        return self._obj.GetNumProp("width") / 600.0
+
+    @width.setter
+    def width(self, value: float) -> None:
+        """Set page width in inches.
+
+        Uses ``page -ps W dots`` LabTalk command (1 dot = 1/600 inch),
+        which sets width independently without triggering aspect-ratio
+        correction from the printer paper size.
+        """
+        self.api_core.LT_execute(f"win -a {self.name}")
+        self.api_core.LT_execute(f"page -ps W {int(round(value * 600))}")
 
     @property
     def height(self) -> float:
-        """Height of the graph page"""
-        return self._obj.Height
+        """Height of the graph page in **inches**.
+
+        Internally Origin stores page dimensions in units of 1/600 inch.
+        This property converts to/from inches automatically.
+        """
+        return self._obj.GetNumProp("height") / 600.0
+
+    @height.setter
+    def height(self, value: float) -> None:
+        """Set page height in inches.
+
+        Uses ``page -ps H dots`` LabTalk command (1 dot = 1/600 inch),
+        which sets height independently without triggering aspect-ratio
+        correction from the printer paper size.
+        """
+        self.api_core.LT_execute(f"win -a {self.name}")
+        self.api_core.LT_execute(f"page -ps H {int(round(value * 600))}")
 
     @property
     def units(self) -> int:
-        """Units for dimensions"""
+        """Units for dimensions (read-only; internal unit is 1/600 inch)"""
         return self._obj.Units
 
     def __iter__(self) -> Iterator[GraphLayer]:
@@ -405,47 +435,55 @@ class GraphPage(Page[oext_types.GraphPage]):
 
     def get_width(self) -> float:
         """
-        Get page width.
+        Get page width in **inches**.
 
-        Corresponds to: OriginExt.OriginExt.GraphPage.GetWidth()
+        Origin stores page dimensions in units of 1/600 inch internally.
+        This method returns the value converted to inches.
 
         Returns:
-            float: Page width
+            float: Page width in inches.
         """
-        return self._obj.GetWidth()
+        return self._obj.GetNumProp("width") / 600.0
 
     def set_width(self, width: float) -> None:
         """
         Set page width.
 
-        Corresponds to: OriginExt.OriginExt.GraphPage.SetWidth()
+        Uses ``page -ps W dots`` LabTalk command (1 dot = 1/600 inch),
+        which sets width independently without triggering aspect-ratio
+        correction from the printer paper size.
 
         Args:
-            width: Page width
+            width: Page width in inches.
         """
-        self._obj.SetWidth(width)
+        self.api_core.LT_execute(f"win -a {self.name}")
+        self.api_core.LT_execute(f"page -ps W {int(round(width * 600))}")
 
     def get_height(self) -> float:
         """
-        Get page height.
+        Get page height in **inches**.
 
-        Corresponds to: OriginExt.OriginExt.GraphPage.GetHeight()
+        Origin stores page dimensions in units of 1/600 inch internally.
+        This method returns the value converted to inches.
 
         Returns:
-            float: Page height
+            float: Page height in inches.
         """
-        return self._obj.GetHeight()
+        return self._obj.GetNumProp("height") / 600.0
 
     def set_height(self, height: float) -> None:
         """
         Set page height.
 
-        Corresponds to: OriginExt.OriginExt.GraphPage.SetHeight()
+        Uses ``page -ps H dots`` LabTalk command (1 dot = 1/600 inch),
+        which sets height independently without triggering aspect-ratio
+        correction from the printer paper size.
 
         Args:
-            height: Page height
+            height: Page height in inches.
         """
-        self._obj.SetHeight(height)
+        self.api_core.LT_execute(f"win -a {self.name}")
+        self.api_core.LT_execute(f"page -ps H {int(round(height * 600))}")
 
     def get_layer(self, index: int = 0) -> GraphLayer:
         """

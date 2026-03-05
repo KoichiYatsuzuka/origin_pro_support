@@ -17,7 +17,7 @@ from typing import Optional, Union, TYPE_CHECKING, List
 from collections.abc import Iterator
 
 from ..base import OriginCommandResponceError, OriginNotFoundError, OriginObjectWrapper
-from .enums import ColorMap, AxisType, XYPlotType, GroupMode, OriginColorIndex, ColorSpec, color_to_lt_str, LegendLayout, TickType, MarkerShape, LineStyle
+from .enums import ColorMap, AxisType, XYPlotType, GroupMode, OriginColorIndex, ColorSpec, color_to_lt_str, LegendLayout, LegendAnchor, TickType, MarkerShape, LineStyle
 from .worksheet import Worksheet
 
 from ..base import APP
@@ -31,6 +31,12 @@ from ..lab_talk.lab_talk_commands import (
     layer_plot_get_name, layer_plot_count,
     plot_set_symbol_size, plot_set_symbol_kind,
     plot_set_line_style, plot_set_line_width,
+    win_activate,
+    legend_get_num, legend_set_num,
+    legend_get_str, legend_set_str,
+    legend_update, legend_reconstruct, legend_reset_position, legend_set_layout,
+    active_layer_x_get_from, active_layer_x_get_to,
+    active_layer_y_get_from, active_layer_y_get_to,
 )
 
 if TYPE_CHECKING:
@@ -57,13 +63,18 @@ class DataPlot:
     Corresponds to: originpro.DataPlot, OriginExt.OriginExt.DataPlot
     """
 
-    def __init__(self, plot: oext_types.DataPlot, graph_layer: 'GraphLayer'):
+    def __init__(self, plot: oext_types.DataPlot, graph_layer: 'GraphLayer',
+                 plot_type: Optional[XYPlotType] = None):
         """
         Initialize DataPlot wrapper.
 
         Args:
             plot: ``OriginExt.OriginExt.DataPlot`` instance to wrap.
             graph_layer: Parent ``GraphLayer`` that owns this plot.
+            plot_type: The ``XYPlotType`` used when creating this plot.
+                       When provided, ``_has_line`` and ``_has_symbol`` use it
+                       directly instead of calling ``GetTheme()``, which can
+                       raise a server error after the plot list is rebuilt.
         """
         if plot is None:
             raise ValueError("DataPlot cannot be created with None plot object")
@@ -73,6 +84,7 @@ class DataPlot:
             )
         self._plot: oext_types.DataPlot = plot
         self._graph_layer: 'GraphLayer' = graph_layer
+        self._plot_type: Optional[XYPlotType] = plot_type
 
     # ── helpers ──────────────────────────────────────────────────────────
 
@@ -134,13 +146,28 @@ class DataPlot:
         if current_win:
             self.api_core.LT_execute(f"win -a {current_win}")
 
+    # ── plot-type capability sets ─────────────────────────────────────────
+
+    _LINE_TYPES: frozenset = frozenset({
+        XYPlotType.LINE,
+        XYPlotType.LINE_SYMBOL,
+        XYPlotType.AREA,
+    })
+    _SYMBOL_TYPES: frozenset = frozenset({
+        XYPlotType.SCATTER,
+        XYPlotType.LINE_SYMBOL,
+    })
+
     def _has_symbol(self) -> bool:
         """Return True if this plot type supports symbol (marker) display.
 
-        Checks for the presence of a top-level ``Symbol`` node in the plot's
-        theme tree, which is present for scatter and line+symbol plots but
-        absent for line-only and other non-symbol plot types.
+        Uses the stored ``_plot_type`` when available (fast, no Origin call).
+        Falls back to inspecting the theme tree only when ``_plot_type`` is
+        unknown, because ``GetTheme()`` can raise a server error after the
+        plot list is rebuilt by a subsequent ``add_xy_plot`` call.
         """
+        if self._plot_type is not None:
+            return self._plot_type in self._SYMBOL_TYPES
         theme = self._plot.GetTheme()
         if theme is None:
             return False
@@ -162,10 +189,13 @@ class DataPlot:
     def _has_line(self) -> bool:
         """Return True if this plot type supports line display.
 
-        Checks for the presence of a top-level ``Line`` node in the plot's
-        theme tree, which is present for line and line+symbol plots but
-        absent for scatter-only and other non-line plot types.
+        Uses the stored ``_plot_type`` when available (fast, no Origin call).
+        Falls back to inspecting the theme tree only when ``_plot_type`` is
+        unknown, because ``GetTheme()`` can raise a server error after the
+        plot list is rebuilt by a subsequent ``add_xy_plot`` call.
         """
+        if self._plot_type is not None:
+            return self._plot_type in self._LINE_TYPES
         theme = self._plot.GetTheme()
         if theme is None:
             return False
@@ -201,22 +231,17 @@ class DataPlot:
     def color(self) -> int:
         """Line/symbol color as an Origin color value.
 
-        Reads the plot color via ``[Page]!layerN.plot(M).color`` in LabTalk.
+        Reads via ``DataPlot.GetNumProp("color")``.
         For index colors (1-24) the returned integer matches
         ``OriginColorIndex``.  For custom RGB colors the returned value is
         the Windows COLORREF integer (R + G*256 + B*65536).
 
-        Note: Colors applied at plot-creation time (via ``add_xy_plot``'s
-        *color* argument) are stored in the group's style and may only be
-        readable after ungrouping the plots first
-        (``layer.group_plots(GroupMode.NONE)``).
         Setting accepts an int, (R,G,B) tuple, or ``OriginColorIndex``.
         """
-        page_name, layer_id = self._page_context()
-        plot_id = self._resolve_plot_id()
-        self.api_core.LT_execute(layer_plot_get(page_name, layer_id, plot_id, "color", "_dp_color"))
-        raw = self.api_core.LT_get_var("_dp_color")
+        raw = self._plot.GetNumProp("color")
         if math.isnan(raw):
+            page_name, layer_id = self._page_context()
+            plot_id = self._resolve_plot_id()
             raise OriginCommandResponceError(f"NaN value is received while getting plot color. (page={page_name}, layer={layer_id}, plot={plot_id})")
         return int(raw)
 
@@ -224,13 +249,21 @@ class DataPlot:
     def color(self, value: ColorSpec) -> None:
         """Set the plot color.
 
-        Works reliably after ungrouping
-        (``layer.group_plots(GroupMode.NONE)``).
+        Uses ``DataPlot.SetNumProp("color", color_int)`` for index colors,
+        or ``DataPlot.SetStrProp("color", color_str)`` for RGB colors.
         """
-        page_name, layer_id = self._page_context()
-        plot_id = self._resolve_plot_id()
-        color_str = color_to_lt_str(value)
-        self.api_core.LT_execute(layer_plot_set(page_name, layer_id, plot_id, "color", color_str))
+        if isinstance(value, tuple) and len(value) == 3:
+            # RGB tuple: must use LabTalk layer_plot_set since SetNumProp can't encode RGB
+            page_name, layer_id = self._page_context()
+            plot_id = self._resolve_plot_id()
+            color_str = color_to_lt_str(value)
+            self.api_core.LT_execute(layer_plot_set(page_name, layer_id, plot_id, "color", color_str))
+        else:
+            if isinstance(value, OriginColorIndex):
+                int_val = value.value
+            else:
+                int_val = int(value)
+            self._plot.SetNumProp("color", int_val)
 
     @property
     def color_map(self) -> ColorMap:
@@ -248,9 +281,10 @@ class DataPlot:
 
     @property
     def symbol_size(self) -> float:
-        """Symbol (marker) size for this plot.
+        """Symbol (marker) size for this plot in **points** (1 pt = 1/72 inch).
 
-        Reads and writes ``[Page]!layerN.plot(M).symbol.size`` via LabTalk.
+        Reads via ``[Page]!layerN.plot(M).symbol.size`` LabTalk notation.
+        Writes via ``set <dataset> -z <size>`` (unit: points).
 
         Raises:
             ValueError: If the plot type does not support symbols.
@@ -276,7 +310,7 @@ class DataPlot:
         Uses ``set <dataset> -z <size>`` LabTalk command.
 
         Args:
-            value: Symbol size as a positive float.
+            value: Symbol size in **points** (1 pt = 1/72 inch), must be positive.
 
         Raises:
             ValueError: If the plot type does not support symbols, or value is not positive.
@@ -328,19 +362,16 @@ class DataPlot:
     def line_style(self) -> LineStyle:
         """Line style for this plot.
 
-        Reads and writes ``[Page]!layerN.plot(M).linestyle`` via LabTalk.
+        Reads via ``DataPlot.GetNumProp("line.type")`` which returns an integer
+        matching the ``LineStyle`` enum values (1 = SOLID, 2 = DASH, 3 = DOT, …).
+        Writes via ``DataPlot.SetNumProp("line.type", value)``.
 
         Raises:
             ValueError: If the plot type does not support lines.
-            OriginCommandResponceError: If LabTalk returns NaN.
+            OriginCommandResponceError: If the returned value is NaN.
         """
         self._assert_has_line()
-        page_name, layer_id = self._page_context()
-        plot_id = self._resolve_plot_id()
-        self.api_core.LT_execute(
-            layer_plot_get(page_name, layer_id, plot_id, "line.type", "_dp_lstyle")
-        )
-        raw = self.api_core.LT_get_var("_dp_lstyle")
+        raw = self._plot.GetNumProp("line.type")
         if math.isnan(raw):
             raise OriginCommandResponceError(
                 f"NaN returned while getting line.type for plot '{self.name}'."
@@ -351,7 +382,9 @@ class DataPlot:
     def line_style(self, value: LineStyle) -> None:
         """Set the line style.
 
-        Uses ``set <dataset> -l <style>`` LabTalk command.
+        Uses ``DataPlot.SetNumProp("line.type", value.value)``.
+        The stored integer matches the ``LineStyle`` enum
+        (1 = SOLID, 2 = DASH, 3 = DOT, 4 = DASH_DOT, 5 = DASH_DOT_DOT).
 
         Args:
             value: A ``LineStyle`` enum member.
@@ -360,25 +393,23 @@ class DataPlot:
             ValueError: If the plot type does not support lines.
         """
         self._assert_has_line()
-        self._execute_with_active_page(plot_set_line_style(self._plot.GetDatasetName(), value.value - 1))
+        self._plot.SetNumProp("line.type", value.value)
 
     @property
     def line_width(self) -> float:
-        """Line width for this plot in points.
+        """Line width for this plot in **points** (1 pt = 1/72 inch).
 
-        Reads and writes ``[Page]!layerN.plot(M).linewidth`` via LabTalk.
+        Reads via ``DataPlot.GetNumProp("line.width")`` which returns the value
+        directly in points.
+        Note: the LabTalk ``set -w`` command uses units of pts × 500
+        (e.g. 500 = 1 pt), but ``GetNumProp``/``SetNumProp`` use plain points.
 
         Raises:
             ValueError: If the plot type does not support lines.
-            OriginCommandResponceError: If LabTalk returns NaN.
+            OriginCommandResponceError: If the returned value is NaN.
         """
         self._assert_has_line()
-        page_name, layer_id = self._page_context()
-        plot_id = self._resolve_plot_id()
-        self.api_core.LT_execute(
-            layer_plot_get(page_name, layer_id, plot_id, "line.width", "_dp_lwidth")
-        )
-        raw = self.api_core.LT_get_var("_dp_lwidth")
+        raw = self._plot.GetNumProp("line.width")
         if math.isnan(raw):
             raise OriginCommandResponceError(
                 f"NaN returned while getting line.width for plot '{self.name}'."
@@ -389,10 +420,10 @@ class DataPlot:
     def line_width(self, value: float) -> None:
         """Set the line width.
 
-        Uses ``set <dataset> -w <width>`` LabTalk command.
+        Uses ``DataPlot.SetNumProp("line.width", value)``.
 
         Args:
-            value: Line width as a positive float (in points).
+            value: Line width in **points** (1 pt = 1/72 inch), must be positive.
 
         Raises:
             ValueError: If the plot type does not support lines, or value is not positive.
@@ -400,7 +431,7 @@ class DataPlot:
         self._assert_has_line()
         if value <= 0:
             raise ValueError(f"line_width must be positive, got {value}")
-        self._execute_with_active_page(plot_set_line_width(self._plot.GetDatasetName(), value * 500))
+        self._plot.SetNumProp("line.width", value)
 
     def change_data(self, data_obj, designation: str = 'Y', keep_modifiers: bool = False) -> bool:
         """
@@ -446,12 +477,10 @@ class Legend:
     # ── helpers ──────────────────────────────────────────────────────────
 
     def _activate(self) -> None:
-        """Activate the parent layer so LabTalk's ``legend`` object is correct."""
+        """Activate the parent page so LabTalk's ``legend`` object is correct."""
         if self._layer._parent_page is not None:
             page_name = self._layer._parent_page.name
-            layer_no = self._layer._id + 1
-            self._layer.api_core.LT_execute(f"win -a {page_name}")
-            self._layer.api_core.LT_execute(f"layer {layer_no}")
+            self._layer.api_core.LT_execute(win_activate(page_name))
 
     # ── visibility ───────────────────────────────────────────────────────
 
@@ -462,8 +491,7 @@ class Legend:
         Corresponds to: ``legend.show`` in LabTalk.
         """
         self._activate()
-        self._layer.api_core.LT_execute("_leg_show = legend.show")
-        import math
+        self._layer.api_core.LT_execute(legend_get_num("show", "_leg_show"))
         val = self._layer.api_core.LT_get_var("_leg_show")
         if math.isnan(val):
             return True
@@ -477,7 +505,7 @@ class Legend:
             value: True to show, False to hide.
         """
         self._activate()
-        self._layer.api_core.LT_execute(f"legend.show = {1 if value else 0}")
+        self._layer.api_core.LT_execute(legend_set_num("show", 1 if value else 0))
 
     # ── text ─────────────────────────────────────────────────────────────
 
@@ -485,22 +513,38 @@ class Legend:
     def text(self) -> str:
         """Raw text content of the legend object.
 
+        Line breaks are stored internally as ``\\r\\n`` (CRLF) by Origin.
+        The getter returns them as ``\\n`` (LF) for consistency.
+
         Corresponds to: ``legend.text$`` in LabTalk.
         """
         self._activate()
-        self._layer.api_core.LT_execute("_leg_text$ = legend.text$")
-        return self._layer.api_core.LT_get_str("_leg_text")
+        self._layer.api_core.LT_execute(legend_get_str("text", "_leg_text"))
+        raw = self._layer.api_core.LT_get_str("_leg_text")
+        return raw.replace("\r\n", "\n").replace("\r", "\n")
 
     @text.setter
     def text(self, value: str) -> None:
         """Set the raw text of the legend.
 
+        Line breaks must be Python ``\\n`` characters (or ``\\r\\n``).
+        They are converted to ``\\r\\n`` (CRLF) before passing to Origin,
+        which is the only newline form that Origin's legend object recognises.
+
+        Do **not** use the literal string ``\\\\n`` — Origin does not
+        interpret that as a line break in legend text.
+
+        Example::
+
+            legend.text = r"\\l(1) 0 min" + "\\n" + r"\\l(2) 50 min"
+
         Args:
-            value: New legend text. Use ``\\(\\n)`` for line breaks.
+            value: New legend text.  Use Python ``\\n`` for line breaks.
         """
         self._activate()
-        escaped = value.replace('"', '\\"')
-        self._layer.api_core.LT_execute(f'legend.text$ = "{escaped}"')
+        normalised = value.replace("\r\n", "\n").replace("\r", "\n").replace("\n", "\r\n")
+        escaped = normalised.replace('"', '\\"')
+        self._layer.api_core.LT_execute(legend_set_str("text", escaped))
 
     # ── position ─────────────────────────────────────────────────────────
 
@@ -512,10 +556,9 @@ class Legend:
         Returns:
             tuple: (x, y) centre coordinates of the legend in axis-scale units.
         """
-        import math
         self._activate()
-        self._layer.api_core.LT_execute("_leg_x = legend.x")
-        self._layer.api_core.LT_execute("_leg_y = legend.y")
+        self._layer.api_core.LT_execute(legend_get_num("x", "_leg_x"))
+        self._layer.api_core.LT_execute(legend_get_num("y", "_leg_y"))
         x = self._layer.api_core.LT_get_var("_leg_x")
         y = self._layer.api_core.LT_get_var("_leg_y")
         x = 0.0 if math.isnan(x) else float(x)
@@ -535,7 +578,92 @@ class Legend:
             y: Vertical centre of the legend in axis-scale units.
         """
         self._activate()
-        self._layer.api_core.LT_execute(f"legend.x = {x}; legend.y = {y}")
+        self._layer.api_core.LT_execute(legend_set_num("x", x))
+        self._layer.api_core.LT_execute(legend_set_num("y", y))
+
+    def get_position_pct(self) -> tuple:
+        """Get the legend centre position as a percentage of the layer axis range.
+
+        (0, 0) corresponds to the bottom-left corner of the axis frame;
+        (100, 100) corresponds to the top-right corner.
+
+        Reads ``layer.x.from/to`` and ``layer.y.from/to`` via LabTalk and
+        converts the current ``legend.x``/``legend.y`` axis-scale values to
+        percentages.
+
+        Returns:
+            tuple: (x_pct, y_pct) as percentages of the layer axis width/height.
+        """
+        self._activate()
+        api = self._layer.api_core
+        api.LT_execute(active_layer_x_get_from("_lxf"))
+        api.LT_execute(active_layer_x_get_to("_lxt"))
+        api.LT_execute(active_layer_y_get_from("_lyf"))
+        api.LT_execute(active_layer_y_get_to("_lyt"))
+        api.LT_execute(legend_get_num("x", "_leg_x"))
+        api.LT_execute(legend_get_num("y", "_leg_y"))
+        xf = api.LT_get_var("_lxf"); xt = api.LT_get_var("_lxt")
+        yf = api.LT_get_var("_lyf"); yt = api.LT_get_var("_lyt")
+        lx = api.LT_get_var("_leg_x"); ly = api.LT_get_var("_leg_y")
+        xf = 0.0 if math.isnan(xf) else float(xf)
+        xt = 1.0 if math.isnan(xt) else float(xt)
+        yf = 0.0 if math.isnan(yf) else float(yf)
+        yt = 1.0 if math.isnan(yt) else float(yt)
+        lx = 0.0 if math.isnan(lx) else float(lx)
+        ly = 0.0 if math.isnan(ly) else float(ly)
+        x_pct = (lx - xf) / (xt - xf) * 100.0 if xt != xf else 0.0
+        y_pct = (ly - yf) / (yt - yf) * 100.0 if yt != yf else 0.0
+        return (x_pct, y_pct)
+
+    def set_position_pct(
+        self, x_pct: float, y_pct: float, anchor: LegendAnchor = LegendAnchor.CENTER
+    ) -> None:
+        """Move the legend to a position specified as a percentage of the layer axis range.
+
+        (0, 0) corresponds to the bottom-left corner of the axis frame;
+        (100, 100) corresponds to the top-right corner.
+
+        Internally reads ``layer.x.from/to`` and ``layer.y.from/to`` via
+        LabTalk, converts the percentage values to axis-scale units, and
+        applies an offset determined by *anchor* so that the chosen corner of
+        the legend lands on the target point.
+
+        ``legend.x``/``legend.y`` in LabTalk refer to the **centre** of the
+        legend object; ``legend.dx``/``legend.dy`` give its full width/height
+        in axis-scale units, so the offset is ±dx/2 and ±dy/2.
+
+        Args:
+            x_pct:  Horizontal position as % of axis width  (0–100).
+            y_pct:  Vertical   position as % of axis height (0–100).
+            anchor: Which point of the legend is placed at (x_pct, y_pct).
+                    Use ``LegendAnchor`` enum values:
+
+                    - ``LegendAnchor.CENTER``       – centre of the legend *(default)*
+                    - ``LegendAnchor.TOP_LEFT``     – top-left  corner
+                    - ``LegendAnchor.TOP_RIGHT``    – top-right corner
+                    - ``LegendAnchor.BOTTOM_LEFT``  – bottom-left  corner
+                    - ``LegendAnchor.BOTTOM_RIGHT`` – bottom-right corner
+        """
+        self._activate()
+        api = self._layer.api_core
+        api.LT_execute(active_layer_x_get_from("_lxf"))
+        api.LT_execute(active_layer_x_get_to("_lxt"))
+        api.LT_execute(active_layer_y_get_from("_lyf"))
+        api.LT_execute(active_layer_y_get_to("_lyt"))
+        api.LT_execute(legend_get_num("dx", "_ldx"))
+        api.LT_execute(legend_get_num("dy", "_ldy"))
+        xf = api.LT_get_var("_lxf"); xt = api.LT_get_var("_lxt")
+        yf = api.LT_get_var("_lyf"); yt = api.LT_get_var("_lyt")
+        dx = api.LT_get_var("_ldx"); dy = api.LT_get_var("_ldy")
+        if math.isnan(xf) or math.isnan(xt) or math.isnan(yf) or math.isnan(yt):
+            raise RuntimeError("Could not read layer axis range from LabTalk.")
+        dx = 0.0 if math.isnan(dx) else float(dx)
+        dy = 0.0 if math.isnan(dy) else float(dy)
+        sx, sy = anchor.value
+        x = float(xf) + (float(xt) - float(xf)) * x_pct / 100.0 + sx * dx
+        y = float(yf) + (float(yt) - float(yf)) * y_pct / 100.0 + sy * dy
+        api.LT_execute(legend_set_num("x", x))
+        api.LT_execute(legend_set_num("y", y))
 
     def reset_position(self) -> None:
         """Reset the legend to its default position.
@@ -543,7 +671,7 @@ class Legend:
         Corresponds to: ``legend -d`` in LabTalk.
         """
         self._activate()
-        self._layer.api_core.LT_execute("legend -d")
+        self._layer.api_core.LT_execute(legend_reset_position())
 
     # ── font size ─────────────────────────────────────────────────────────
 
@@ -553,9 +681,8 @@ class Legend:
 
         Corresponds to: ``legend.fsize`` in LabTalk.
         """
-        import math
         self._activate()
-        self._layer.api_core.LT_execute("_leg_fsize = legend.fsize")
+        self._layer.api_core.LT_execute(legend_get_num("fsize", "_leg_fsize"))
         val = self._layer.api_core.LT_get_var("_leg_fsize")
         if math.isnan(val):
             return 12
@@ -571,7 +698,7 @@ class Legend:
         if value <= 0:
             raise ValueError(f"font_size must be a positive integer, got {value}")
         self._activate()
-        self._layer.api_core.LT_execute(f"legend.fsize = {value}")
+        self._layer.api_core.LT_execute(legend_set_num("fsize", value))
 
     # ── background box ────────────────────────────────────────────────────
 
@@ -584,9 +711,8 @@ class Legend:
 
         Corresponds to: ``legend.background`` in LabTalk.
         """
-        import math
         self._activate()
-        self._layer.api_core.LT_execute("_leg_bg = legend.background")
+        self._layer.api_core.LT_execute(legend_get_num("background", "_leg_bg"))
         val = self._layer.api_core.LT_get_var("_leg_bg")
         if math.isnan(val):
             return 1
@@ -601,7 +727,7 @@ class Legend:
                    4=black border + white-out.
         """
         self._activate()
-        self._layer.api_core.LT_execute(f"legend.background = {value}")
+        self._layer.api_core.LT_execute(legend_set_num("background", value))
 
     # ── layout ────────────────────────────────────────────────────────────
 
@@ -612,7 +738,7 @@ class Legend:
             layout: LegendLayout.VERTICAL or LegendLayout.HORIZONTAL.
         """
         self._activate()
-        self._layer.api_core.LT_execute(f"legend -{layout.value}")
+        self._layer.api_core.LT_execute(legend_set_layout(layout.value))
 
     # ── reconstruct ───────────────────────────────────────────────────────
 
@@ -624,7 +750,7 @@ class Legend:
         Corresponds to: ``legend -r`` in LabTalk.
         """
         self._activate()
-        self._layer.api_core.LT_execute("legend -r")
+        self._layer.api_core.LT_execute(legend_reconstruct())
 
     def update(self) -> None:
         """Create or update the legend on the active graph layer.
@@ -632,7 +758,7 @@ class Legend:
         Corresponds to: ``legend`` (no option) in LabTalk.
         """
         self._activate()
-        self._layer.api_core.LT_execute("legend")
+        self._layer.api_core.LT_execute(legend_update())
 
 
 # ================== Axis Class ==================
@@ -880,13 +1006,14 @@ class Axis:
         Get the number of minor ticks between major ticks for this axis.
 
         Uses ``axis -pg axis M varName`` (type ``M`` = number of Minor ticks).
-        Ref: https://www.originlab.com/doc/LabTalk/ref/Axis-cmd
+        Requires an active graph window; activates the parent page automatically.
 
         Returns:
             int: Current number of minor ticks between major ticks.
         """
         pg_ax = self._get_axis_pg_letter()
         page, lid = self._page_context()
+        self._api_core.LT_execute(f"win -a {page}")
         self._api_core.LT_execute(axis_pg(pg_ax, "M", "_ax_minor"))
         val = self._api_core.LT_get_var("_ax_minor")
         if math.isnan(val):
@@ -898,7 +1025,7 @@ class Axis:
         Set the number of minor ticks between major ticks for this axis.
 
         Uses ``axis -ps axis M value`` (type ``M`` = number of Minor ticks).
-        Ref: https://www.originlab.com/doc/LabTalk/ref/Axis-cmd
+        Requires an active graph window; activates the parent page automatically.
 
         Args:
             count: Number of minor ticks between major ticks (non-negative int).
@@ -906,6 +1033,8 @@ class Axis:
         if count < 0:
             raise ValueError(f"count must be non-negative, got {count}")
         pg_ax = self._get_axis_pg_letter()
+        page, lid = self._page_context()
+        self._api_core.LT_execute(f"win -a {page}")
         self._api_core.LT_execute(axis_ps(pg_ax, "M", count))
 
     # ── opposite axis visibility (TODO-3) ─────────────────────────────────
@@ -1031,7 +1160,6 @@ class Axis:
         obj = self._get_title_obj_name()
         page, lid = self._page_context()
         self._api_core.LT_execute(f"win -a {page}")
-        self._api_core.LT_execute(f"layer {lid + 1}")
         self._api_core.LT_execute(f"string _ax_lbl$; _ax_lbl$ = {obj}.text$")
         return self._api_core.LT_get_str("_ax_lbl")
 
@@ -1049,7 +1177,6 @@ class Axis:
         page, lid = self._page_context()
         escaped = value.replace('"', '\\"')
         self._api_core.LT_execute(f"win -a {page}")
-        self._api_core.LT_execute(f"layer {lid + 1}")
         self._api_core.LT_execute(f'{obj}.text$ = "{escaped}"')
 
     # ── axis label visibility (TODO-5) ───────────────────────────────────
@@ -1064,7 +1191,6 @@ class Axis:
         obj = self._get_title_obj_name()
         page, lid = self._page_context()
         self._api_core.LT_execute(f"win -a {page}")
-        self._api_core.LT_execute(f"layer {lid + 1}")
         self._api_core.LT_execute(f"{obj}.show = 1")
 
     def hide_label(self) -> None:
@@ -1076,7 +1202,6 @@ class Axis:
         obj = self._get_title_obj_name()
         page, lid = self._page_context()
         self._api_core.LT_execute(f"win -a {page}")
-        self._api_core.LT_execute(f"layer {lid + 1}")
         self._api_core.LT_execute(f"{obj}.show = 0")
 
     def get_label_visible(self) -> bool:
@@ -1089,7 +1214,6 @@ class Axis:
         obj = self._get_title_obj_name()
         page, lid = self._page_context()
         self._api_core.LT_execute(f"win -a {page}")
-        self._api_core.LT_execute(f"layer {lid + 1}")
         self._api_core.LT_execute(f"_ax_sl = {obj}.show")
         val = self._api_core.LT_get_var("_ax_sl")
         if math.isnan(val):
@@ -1173,12 +1297,12 @@ class GraphLayer(OriginObjectWrapper[oext_types.GraphLayer]):
         """
         return Axis(self, axis_type)
 
-    def rescale(self) -> None:
-        """
-        Rescale all axes in the layer.
-        """
-        cmd = "layer -a 100"  # Rescale all axes
-        self.api_core.LT_execute(cmd)
+    # def rescale(self) -> None:
+    #     """
+    #     Rescale all axes in the layer.
+    #     """
+    #     cmd = "layer -a 100"  # Rescale all axes
+    #     self.api_core.LT_execute(cmd)
 
     def rescale_axis(self, axis_type: AxisType) -> None:
         """
@@ -1243,10 +1367,10 @@ class GraphLayer(OriginObjectWrapper[oext_types.GraphLayer]):
 
         self.api_core.LT_execute(cmd)
 
-        plots = self._get_data_plot_list()
-        if not plots:
+        raw_plots = list(self._obj.DataPlots)
+        if not raw_plots:
             raise OriginNotFoundError("No DataPlot found in layer after executing plotxy.")
-        return plots[-1]
+        return DataPlot(raw_plots[-1], self, plot_type)
 
     def group_plots(self, group_mode: Optional[GroupMode] = None) -> None:
         """
@@ -1258,8 +1382,9 @@ class GraphLayer(OriginObjectWrapper[oext_types.GraphLayer]):
         if group_mode is None:
             group_mode = GroupMode.DEPENDENT
 
-        cmd = f"layer -g {group_mode.value}"
-        self.api_core.LT_execute(cmd)
+        if self._parent_page is not None:
+            self.api_core.LT_execute(f"win -a {self._parent_page.name}")
+        self.api_core.LT_execute(f"layer -g {group_mode.value}")
 
     def get_parent_graph(self) -> oext_types.GraphPage:
         """
@@ -1274,28 +1399,33 @@ class GraphLayer(OriginObjectWrapper[oext_types.GraphLayer]):
         """
         Set the drawing position and size of this layer on the page.
 
-        All values are in percentage of the page dimensions (0-100).
+        All values are in **percentage of the page dimensions** (0-100 %).
         Origin's default layer occupies roughly x=15, y=15, width=70, height=70.
 
-        Corresponds to: layer.left = x; layer.top = y; layer.width = w; layer.height = h
+        Internally uses ``[page]!layerN.left/top/width/height`` LabTalk
+        properties, which accept percentage values.
 
         Args:
-            x: Left position as percentage of page width (0-100)
-            y: Top position as percentage of page height (0-100)
-            width: Layer width as percentage of page width (0-100)
-            height: Layer height as percentage of page height (0-100)
+            x: Left edge position as % of page width (0-100).
+            y: Top edge position as % of page height (0-100).
+            width: Layer width as % of page width (0-100).
+            height: Layer height as % of page height (0-100).
         """
         if self._parent_page is not None:
             page_name = self._parent_page.name
             layer_no = self._id + 1  # 1-based layer number
-            # Activate the target layer so LabTalk's 'layer' object points to it
-            self.api_core.LT_execute(f"win -a {page_name}")
-            self.api_core.LT_execute(f"layer {layer_no}")
-        # Set all four geometry properties in one command
-        self.api_core.LT_execute(
-            f"layer.left = {x}; layer.top = {y}; "
-            f"layer.width = {width}; layer.height = {height}"
-        )
+            # Use explicit [page]!layerN.prop notation so the target is
+            # unambiguous and independent of the currently active layer.
+            self.api_core.LT_execute(f"[{page_name}]!layer{layer_no}.left = {x}")
+            self.api_core.LT_execute(f"[{page_name}]!layer{layer_no}.top = {y}")
+            self.api_core.LT_execute(f"[{page_name}]!layer{layer_no}.width = {width}")
+            self.api_core.LT_execute(f"[{page_name}]!layer{layer_no}.height = {height}")
+        else:
+            # Fallback: activate and use the generic layer object
+            self.api_core.LT_execute(f"layer.left = {x}")
+            self.api_core.LT_execute(f"layer.top = {y}")
+            self.api_core.LT_execute(f"layer.width = {width}")
+            self.api_core.LT_execute(f"layer.height = {height}")
 
     def get_legend(self) -> Legend:
         """
@@ -1310,27 +1440,31 @@ class GraphLayer(OriginObjectWrapper[oext_types.GraphLayer]):
         """
         Get the current drawing position and size of this layer.
 
-        All values are in percentage of the page dimensions (0-100).
+        All values are in **percentage of the page dimensions** (0-100 %).
 
-        Corresponds to: GetNumProp("left/top/width/height") on the OriginExt layer object.
+        Reads ``[page]!layerN.left``, ``.top``, ``.width``, ``.height``
+        via LabTalk.
 
         Returns:
-            tuple: (x, y, width, height) in percentage of page dimensions,
-                   or (0.0, 0.0, 0.0, 0.0) if unavailable
+            tuple: ``(x, y, width, height)`` in % of page dimensions
+                   (left, top, layer-width, layer-height).
+                   Returns ``(0.0, 0.0, 0.0, 0.0)`` if the parent page is unavailable.
         """
         if self._parent_page is None:
             return (0.0, 0.0, 0.0, 0.0)
 
-        import math
+        page_name = self._parent_page.name
+        layer_no  = self._id + 1
 
-        def _safe(v):
-            return 0.0 if math.isnan(v) else float(v)
+        def _read(prop: str) -> float:
+            self.api_core.LT_execute(
+                f"_gs_tmp = [{page_name}]!layer{layer_no}.{prop}"
+            )
+            val = self.api_core.LT_get_var("_gs_tmp")
+            return 0.0 if math.isnan(val) else float(val)
 
-        # GetNumProp reads geometry directly from the OriginExt layer object.
-        # Values are in percentage of page dimensions (0-100).
-        x      = _safe(self._obj.GetNumProp("left"))
-        y      = _safe(self._obj.GetNumProp("top"))
-        width  = _safe(self._obj.GetNumProp("width"))
-        height = _safe(self._obj.GetNumProp("height"))
-
+        x      = _read("left")
+        y      = _read("top")
+        width  = _read("width")
+        height = _read("height")
         return (x, y, width, height)

@@ -70,7 +70,7 @@ class OriginColorIndex(Enum):
     """Named color indices from Origin's standard color list (1-24).
 
     These correspond to Origin's built-in color palette.
-    Ref: https://www.originlab.com/doc/LabTalk/guide/Specifying-Colors
+    Ref: https://www.originlab.com/doc/en/LabTalk/ref/List-of-Colors
     """
     BLACK = 1
     RED = 2
@@ -229,6 +229,23 @@ class LegendLayout(Enum):
     HORIZONTAL = "ah"
 
 
+class LegendAnchor(Enum):
+    """Anchor point of the legend used by ``Legend.set_position_pct``.
+
+    Specifies which corner (or the centre) of the legend box is placed
+    at the coordinates given to ``set_position_pct``.
+
+    Values are (x_sign, y_sign) multipliers for half the legend size
+    (``legend.dx / 2``, ``legend.dy / 2``) that are added to the
+    target axis-scale coordinate to obtain the legend centre position.
+    """
+    CENTER       = ( 0.0,  0.0)
+    TOP_LEFT     = ( 0.5, -0.5)
+    TOP_RIGHT    = (-0.5, -0.5)
+    BOTTOM_LEFT  = ( 0.5,  0.5)
+    BOTTOM_RIGHT = (-0.5,  0.5)
+
+
 # ================== Export ==================
 
 __all__ = [
@@ -252,4 +269,5 @@ __all__ = [
     'LineStyle',
     # Legend enums
     'LegendLayout',
+    'LegendAnchor',
 ]
