@@ -36,12 +36,12 @@
   - 対象クラス: `DataPlot`
   - 実装方針: LabTalk `layer.plot(n).symbol.size` を使ったプロパティを追加
 
-- [ ] 7. **線種編集**
+- [x] 7. **線種編集**
   - `DataPlot` に線スタイル（実線/破線等）の get/set プロパティがない
   - 対象クラス: `DataPlot`
   - 実装方針: LabTalk `layer.plot(n).linestyle` を使ったプロパティを追加（線種の列挙型も定義）
 
-- [ ] 8. **線の太さ編集**
+- [x] 8. **線の太さ編集**
   - `DataPlot` に線幅の get/set プロパティがない
   - 対象クラス: `DataPlot`
   - 実装方針: LabTalk `layer.plot(n).linewidth` を使ったプロパティを追加

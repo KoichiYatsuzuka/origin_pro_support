@@ -194,6 +194,27 @@ class MarkerShape(Enum):
     SPHERE = 17
 
 
+# ================== Line Enums ==================
+
+class LineStyle(Enum):
+    """Enumeration for plot line styles.
+
+    The integer values correspond to Origin's internal line style IDs used in
+    LabTalk ``layer.plot(n).line.style`` (1-based after explicit set).
+    Value 0 is the unset default which Origin treats as solid.
+
+    Setter uses ``set <dataset> -d (value-1)`` (0-based).
+
+    Ref: https://www.originlab.com/doc/LabTalk/ref/Layer-plot-obj
+         https://www.originlab.com/doc/LabTalk/ref/Options_for_Lines
+    """
+    SOLID = 1
+    DASH = 2
+    DOT = 3
+    DASH_DOT = 4
+    DASH_DOT_DOT = 5
+
+
 # ================== Legend Enums ==================
 
 class LegendLayout(Enum):
@@ -227,6 +248,8 @@ __all__ = [
     'TickType',
     # Symbol enums
     'MarkerShape',
+    # Line enums
+    'LineStyle',
     # Legend enums
     'LegendLayout',
 ]

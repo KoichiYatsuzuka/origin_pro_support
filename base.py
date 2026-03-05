@@ -38,6 +38,11 @@ class OriginPageGenerationError(BaseException):
 class OriginCommandResponceError(BaseException):
     """Exception raised when a command response is NaN, null, failed to cast, and so on."""
     pass
+
+class OriginPlotTypeReferenceError(BaseException):
+    """Exception raised when a plot type does not support the specified property."""
+    pass
+ 
 # ================== Type Variables ==================
 
 T = TypeVar('T')

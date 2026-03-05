@@ -357,6 +357,41 @@ def plot_set_symbol_kind(dataset_name: str, kind: int) -> str:
     return f"set {dataset_name} -k {kind}"
 
 
+def plot_set_line_style(dataset_name: str, style: int) -> str:
+    """Set the line style of a plot via the ``set`` LabTalk command.
+
+    ### dataset_name
+        The dataset name as returned by ``DataObjectBase.GetDatasetName()``,
+        e.g. ``"Book1_B"``.
+
+    ### style
+        Line style integer corresponding to ``LineStyle`` enum values.
+        1=Solid, 2=Dash, 3=Dot, 4=DashDot, 5=DashDotDot.
+
+    Generates: ``set <dataset_name> -d <style>``
+
+    Ref: https://www.originlab.com/doc/LabTalk/ref/Set-cmd
+    """
+    return f"set {dataset_name} -d {style}"
+
+
+def plot_set_line_width(dataset_name: str, width: float) -> str:
+    """Set the line width of a plot via the ``set`` LabTalk command.
+
+    ### dataset_name
+        The dataset name as returned by ``DataObjectBase.GetDatasetName()``,
+        e.g. ``"Book1_B"``.
+
+    ### width
+        Line width as a positive float (in points).
+
+    Generates: ``set <dataset_name> -w <width>``
+
+    Ref: https://www.originlab.com/doc/LabTalk/ref/Set-cmd
+    """
+    return f"set {dataset_name} -w {width}"
+
+
 def axis_ps(
     axis: str,
     type: str,

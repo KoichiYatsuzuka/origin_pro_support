@@ -30,6 +30,7 @@ from .enums import (
     TickType,
     LegendLayout,
     MarkerShape,
+    LineStyle,
 )
 from base import APP
 
@@ -136,5 +137,6 @@ __all__ = [
     'ScaleType',
     'TickType',
     'MarkerShape',
+    'LineStyle',
     'LegendLayout',
 ]

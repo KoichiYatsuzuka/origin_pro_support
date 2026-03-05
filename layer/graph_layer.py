@@ -17,7 +17,7 @@ from typing import Optional, Union, TYPE_CHECKING, List
 from collections.abc import Iterator
 
 from ..base import OriginCommandResponceError, OriginNotFoundError, OriginObjectWrapper
-from .enums import ColorMap, AxisType, XYPlotType, GroupMode, OriginColorIndex, ColorSpec, color_to_lt_str, LegendLayout, TickType, MarkerShape
+from .enums import ColorMap, AxisType, XYPlotType, GroupMode, OriginColorIndex, ColorSpec, color_to_lt_str, LegendLayout, TickType, MarkerShape, LineStyle
 from .worksheet import Worksheet
 
 from ..base import APP
@@ -30,6 +30,7 @@ from ..lab_talk.lab_talk_commands import (
     layer_plot_get, layer_plot_set,
     layer_plot_get_name, layer_plot_count,
     plot_set_symbol_size, plot_set_symbol_kind,
+    plot_set_line_style, plot_set_line_width,
 )
 
 if TYPE_CHECKING:
@@ -114,6 +115,25 @@ class DataPlot:
             )
         return int(match.group(1))
 
+    def _execute_with_active_page(self, command: str) -> None:
+        """Execute a LabTalk command after activating this plot's page.
+
+        Saves the currently active window name, activates the page that owns
+        this plot, executes *command*, then restores the previously active
+        window.  This ensures ``set`` commands (which require an active graph
+        window) target the correct page without leaving side-effects on the
+        user's active window.
+
+        Args:
+            command: LabTalk command string to execute.
+        """
+        page_name, _ = self._page_context()
+        current_win = self.api_core.LT_get_str('%H')
+        self.api_core.LT_execute(f"win -a {page_name}")
+        self.api_core.LT_execute(command)
+        if current_win:
+            self.api_core.LT_execute(f"win -a {current_win}")
+
     def _has_symbol(self) -> bool:
         """Return True if this plot type supports symbol (marker) display.
 
@@ -122,6 +142,8 @@ class DataPlot:
         absent for line-only and other non-symbol plot types.
         """
         theme = self._plot.GetTheme()
+        if theme is None:
+            return False
         child = theme.firstChild
         while child is not None:
             if child.Name == 'Symbol':
@@ -135,6 +157,31 @@ class DataPlot:
             raise ValueError(
                 f"Plot '{self.name}' does not support symbol (marker) properties. "
                 "Only scatter and line+symbol plots have markers."
+            )
+
+    def _has_line(self) -> bool:
+        """Return True if this plot type supports line display.
+
+        Checks for the presence of a top-level ``Line`` node in the plot's
+        theme tree, which is present for line and line+symbol plots but
+        absent for scatter-only and other non-line plot types.
+        """
+        theme = self._plot.GetTheme()
+        if theme is None:
+            return False
+        child = theme.firstChild
+        while child is not None:
+            if child.Name == 'Line':
+                return True
+            child = child.nextSibling
+        return False
+
+    def _assert_has_line(self) -> None:
+        """Raise ValueError if this plot does not support line display."""
+        if not self._has_line():
+            raise ValueError(
+                f"Plot '{self.name}' does not support line properties. "
+                "Only line and line+symbol plots have lines."
             )
 
     # ── properties ───────────────────────────────────────────────────────
@@ -237,7 +284,7 @@ class DataPlot:
         self._assert_has_symbol()
         if value <= 0:
             raise ValueError(f"symbol_size must be positive, got {value}")
-        self.api_core.LT_execute(plot_set_symbol_size(self._plot.GetDatasetName(), value))
+        self._execute_with_active_page(plot_set_symbol_size(self._plot.GetDatasetName(), value))
 
     @property
     def symbol_kind(self) -> MarkerShape:
@@ -275,7 +322,85 @@ class DataPlot:
             ValueError: If the plot type does not support symbols.
         """
         self._assert_has_symbol()
-        self.api_core.LT_execute(plot_set_symbol_kind(self._plot.GetDatasetName(), value.value))
+        self._execute_with_active_page(plot_set_symbol_kind(self._plot.GetDatasetName(), value.value))
+
+    @property
+    def line_style(self) -> LineStyle:
+        """Line style for this plot.
+
+        Reads and writes ``[Page]!layerN.plot(M).linestyle`` via LabTalk.
+
+        Raises:
+            ValueError: If the plot type does not support lines.
+            OriginCommandResponceError: If LabTalk returns NaN.
+        """
+        self._assert_has_line()
+        page_name, layer_id = self._page_context()
+        plot_id = self._resolve_plot_id()
+        self.api_core.LT_execute(
+            layer_plot_get(page_name, layer_id, plot_id, "line.type", "_dp_lstyle")
+        )
+        raw = self.api_core.LT_get_var("_dp_lstyle")
+        if math.isnan(raw):
+            raise OriginCommandResponceError(
+                f"NaN returned while getting line.type for plot '{self.name}'."
+            )
+        return LineStyle(int(raw))
+
+    @line_style.setter
+    def line_style(self, value: LineStyle) -> None:
+        """Set the line style.
+
+        Uses ``set <dataset> -l <style>`` LabTalk command.
+
+        Args:
+            value: A ``LineStyle`` enum member.
+
+        Raises:
+            ValueError: If the plot type does not support lines.
+        """
+        self._assert_has_line()
+        self._execute_with_active_page(plot_set_line_style(self._plot.GetDatasetName(), value.value - 1))
+
+    @property
+    def line_width(self) -> float:
+        """Line width for this plot in points.
+
+        Reads and writes ``[Page]!layerN.plot(M).linewidth`` via LabTalk.
+
+        Raises:
+            ValueError: If the plot type does not support lines.
+            OriginCommandResponceError: If LabTalk returns NaN.
+        """
+        self._assert_has_line()
+        page_name, layer_id = self._page_context()
+        plot_id = self._resolve_plot_id()
+        self.api_core.LT_execute(
+            layer_plot_get(page_name, layer_id, plot_id, "line.width", "_dp_lwidth")
+        )
+        raw = self.api_core.LT_get_var("_dp_lwidth")
+        if math.isnan(raw):
+            raise OriginCommandResponceError(
+                f"NaN returned while getting line.width for plot '{self.name}'."
+            )
+        return float(raw)
+
+    @line_width.setter
+    def line_width(self, value: float) -> None:
+        """Set the line width.
+
+        Uses ``set <dataset> -w <width>`` LabTalk command.
+
+        Args:
+            value: Line width as a positive float (in points).
+
+        Raises:
+            ValueError: If the plot type does not support lines, or value is not positive.
+        """
+        self._assert_has_line()
+        if value <= 0:
+            raise ValueError(f"line_width must be positive, got {value}")
+        self._execute_with_active_page(plot_set_line_width(self._plot.GetDatasetName(), value * 500))
 
     def change_data(self, data_obj, designation: str = 'Y', keep_modifiers: bool = False) -> bool:
         """
