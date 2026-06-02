@@ -32,7 +32,7 @@ from .enums import (
     MarkerShape,
     LineStyle,
 )
-from base import APP
+from ..base import APP
 
 
 # ================== Type Variables ==================
